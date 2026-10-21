@@ -38,6 +38,11 @@ interface HpBar {
   readonly width: number;
 }
 
+/** UI から Scene へ返す操作要求。 */
+export interface UiHandlers {
+  readonly onRestart: () => void;
+}
+
 interface Selection {
   readonly view: ChoiceView;
   readonly onDecide: (move: Move) => void;
@@ -62,11 +67,13 @@ export class BattleUi {
   private readonly bannerBody: Phaser.GameObjects.Text;
   private readonly cards: Record<Move, { box: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }>;
   private readonly hint: Phaser.GameObjects.Text;
+  private readonly restartButton: Phaser.GameObjects.Container;
   private selection: Selection | null = null;
 
   constructor(
     private readonly scene: Phaser.Scene,
     view: BattleView,
+    handlers: UiHandlers,
   ) {
     const { self, opponent } = view;
     this.turnText = scene.add.text(GAME_WIDTH / 2, 40, "", textStyle(24)).setOrigin(0.5);
@@ -90,10 +97,11 @@ export class BattleUi {
     this.message = scene.add.text(GAME_WIDTH / 2, 270, "", { ...textStyle(30), align: "center" }).setOrigin(0.5);
 
     this.cards = {
-      Slash: this.makeCard(GAME_WIDTH / 2 - 170),
-      Guard: this.makeCard(GAME_WIDTH / 2),
-      Step: this.makeCard(GAME_WIDTH / 2 + 170),
+      Slash: this.makeCard("Slash", GAME_WIDTH / 2 - 170),
+      Guard: this.makeCard("Guard", GAME_WIDTH / 2),
+      Step: this.makeCard("Step", GAME_WIDTH / 2 + 170),
     };
+    this.restartButton = this.makeButton(GAME_WIDTH / 2, 390, "リスタート (R)", handlers.onRestart).setVisible(false);
     this.hint = scene.add.text(GAME_WIDTH / 2, 700, "", textStyle(18, "#9aa4b8")).setOrigin(0.5);
 
     this.bannerBg = scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, 170, 0x000000, 0.8);
@@ -119,10 +127,32 @@ export class BattleUi {
     return { fill, label, width };
   }
 
-  private makeCard(x: number): { box: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text } {
-    const box = this.scene.add.rectangle(x, 620, 140, 100, 0x2a2f3a).setStrokeStyle(3, 0x596275);
+  /** 手札カード。ホバーで選択、クリックで決定（キーボードの A/D・J と同じ動作）。 */
+  private makeCard(move: Move, x: number): { box: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text } {
+    const box = this.scene.add
+      .rectangle(x, 620, 140, 100, 0x2a2f3a)
+      .setStrokeStyle(3, 0x596275)
+      .setInteractive({ useHandCursor: true });
+    box.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => {
+      this.focus(move);
+    });
+    box.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+      this.pick(move);
+    });
     const label = this.scene.add.text(x, 620, "", { ...textStyle(30), align: "center" }).setOrigin(0.5);
     return { box, label };
+  }
+
+  private makeButton(x: number, y: number, text: string, onClick: () => void): Phaser.GameObjects.Container {
+    const bg = this.scene.add
+      .rectangle(0, 0, 220, 56, 0x3b4252)
+      .setStrokeStyle(3, 0xffd866)
+      .setInteractive({ useHandCursor: true });
+    bg.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => bg.setFillStyle(0x4c566a));
+    bg.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () => bg.setFillStyle(0x3b4252));
+    bg.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, onClick);
+    const label = this.scene.add.text(0, 0, text, textStyle(24)).setOrigin(0.5);
+    return this.scene.add.container(x, y, [bg, label]);
   }
 
   private renderHp(side: Side, hp: number, maxHp: number): void {
@@ -148,7 +178,7 @@ export class BattleUi {
       box.setStrokeStyle(focused ? 5 : 3, focused ? 0xffd866 : 0x596275);
       box.setFillStyle(focused ? 0x3b4252 : 0x2a2f3a);
     }
-    this.hint.setText(sel === null ? "" : "A / D : 手を選ぶ    J : 決定");
+    this.hint.setText(sel === null ? "" : "クリックで決定    ／    A / D : 手を選ぶ    J : 決定");
   }
 
   /**
@@ -250,6 +280,7 @@ export class BattleUi {
       case "RoundEnded":
         this.turnText.setText("試合終了");
         this.message.setText(this.resultText(event.view, event.result));
+        this.restartButton.setVisible(true);
         return after(0);
     }
   }
@@ -257,9 +288,9 @@ export class BattleUi {
   private resultText(view: BattleView, result: RoundResult): string {
     switch (result._tag) {
       case "Victory":
-        return `${this.sideName(view, result.winner)} Wins!\n\nR でリスタート`;
+        return `${this.sideName(view, result.winner)} Wins!`;
       case "Draw":
-        return "Draw\n\nR でリスタート";
+        return "Draw";
     }
   }
 
@@ -287,6 +318,22 @@ export class BattleUi {
     if (next === undefined) return;
     sel.cursor = next;
     this.render(sel.view, Option.some(sel.view.opponentHandTotal));
+  }
+
+  /** 指定の手にカーソルを合わせる（手札に無い手は無視）。 */
+  focus(move: Move): void {
+    const sel = this.selection;
+    if (sel === null || sel.view.self.hand[move] === 0 || sel.cursor === move) return;
+    sel.cursor = move;
+    this.render(sel.view, Option.some(sel.view.opponentHandTotal));
+  }
+
+  /** 指定の手で即決定する（クリック操作）。 */
+  pick(move: Move): void {
+    const sel = this.selection;
+    if (sel === null || sel.view.self.hand[move] === 0) return;
+    sel.cursor = move;
+    this.confirm();
   }
 
   confirm(): void {
