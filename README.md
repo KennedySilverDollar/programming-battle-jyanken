@@ -37,17 +37,31 @@ sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl appmenu
 npm run dev        # http://localhost:5173/
 ```
 
-ブラウザでは URL クエリでキャラとシードを指定できる：`/?player=python&cpu=haskell&seed=42`
-（キャラ ID: `python` / `javascript` / `cpp` / `haskell`。seed 省略時は時刻から決定）。
-Tauri 版は URL を指定できないため、既定の Python vs C++・ランダムシードで始まる（キャラ選択画面は今後追加）。
+起動するとキャラクター選択画面から始まる（自分 → CPU の順に選ぶ。同キャラ対戦も可）。
 
-操作（クリックとキーボードはいつでも併用可）：
+ブラウザでは開発用に URL クエリも使える（`player` と `cpu` は両方指定したときだけ選択画面を飛ばす）：
+`/?player=python&cpu=haskell&seed=42`
+（キャラ ID: `python` / `javascript` / `cpp` / `haskell`。seed 省略時は時刻から決定）
+
+### 操作（クリックとキーボードはいつでも併用可）
+
+キャラクター選択：
+
+| 操作 | クリック | キーボード |
+| --- | --- | --- |
+| キャラを選ぶ | カードにカーソルを乗せる | **A / D** |
+| 決定 | カードをクリック | **J** |
+| 自分の選択に戻る | 「戻る」ボタン | **K** |
+| ランダムに決定 | 「おまかせ」ボタン | **R** |
+
+対戦：
 
 | 操作 | クリック | キーボード |
 | --- | --- | --- |
 | 手を選ぶ | カードにカーソルを乗せる | **A / D** |
 | 決定 | カードをクリック | **J** |
-| リスタート（試合終了後） | 「リスタート」ボタン | **R** |
+| 同じ対戦をもう一度（試合終了後） | 「リスタート」ボタン | **R** |
+| キャラ選択へ戻る（試合終了後） | 「キャラ選択へ」ボタン | **C** |
 
 ## 構成
 
@@ -68,8 +82,13 @@ src/
     gameData.ts         起動時パース
     errors.ts           型付きエラー
   game/                 Phaser ホスト（薄い）
+    SelectScene.ts      キャラクター選択 Scene
+    select.ts           キャラクター選択の描画
+    selectState.ts      キャラクター選択の状態遷移（純粋関数）
+    session.ts          Scene 間で共有する型付きの状態（対戦カード・シード）
     BattleScene.ts      Fiber を起動し、Effect.async でUIと橋渡し
-    ui.ts               描画
+    ui.ts               対戦画面の描画
+    widgets.ts          共通部品（ボタン・文字スタイル・キー登録）
     avatar.ts           キャラ表示（矩形 → logoKey の画像があれば自動差し替え）
     phaserRandom.ts     Phaser.Math.RND を包む RandomService Layer
     launch.ts           URL クエリのパース

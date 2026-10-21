@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, Fiber, Layer } from "effect";
+import { Cause, Effect, Exit, Fiber, Layer, Option } from "effect";
 import * as Phaser from "phaser";
 import { randomCpuLayer } from "../core/ai";
 import { playRound } from "../core/battle";
@@ -6,9 +6,10 @@ import type { RoundResult } from "../core/events";
 import { BattleEvents, PlayerInput } from "../core/services";
 import { initialGameState } from "../core/state";
 import { battleView } from "../core/view";
-import type { LaunchConfig } from "./launch";
 import { phaserRandomLayer } from "./phaserRandom";
+import type { GameSession } from "./session";
 import { BattleUi } from "./ui";
+import { bindKeys } from "./widgets";
 
 /** 戦闘 Fiber 完了時に Scene の EventEmitter へ流すイベント名。 */
 export const BATTLE_FINISHED = "battle-finished";
@@ -20,25 +21,37 @@ export const BATTLE_FINISHED = "battle-finished";
  * - Fiber 完了は BATTLE_FINISHED イベントで通知
  */
 export class BattleScene extends Phaser.Scene {
-  private restarts = 0;
+  /** create() のたびに増える世代番号。中断された旧 Fiber の通知を捨てるのに使う。 */
+  private generation = 0;
   private finished = false;
 
-  constructor(private readonly config: LaunchConfig) {
+  constructor(private readonly session: GameSession) {
     super("battle");
   }
 
   create(): void {
     this.finished = false;
-    const { data, characters, seed } = this.config;
-    const restart = (): void => {
-      if (this.finished) {
-        this.restarts += 1;
-        this.scene.restart();
-      }
-    };
-    const ui = new BattleUi(this, battleView(initialGameState(characters), "Player"), { onRestart: restart });
+    const generation = ++this.generation;
+    const matchup = this.session.currentMatchup();
+    if (Option.isNone(matchup)) {
+      this.scene.start("select");
+      return;
+    }
+    const characters = matchup.value;
+    const { data } = this.session;
+    const seed = this.session.nextSeed();
 
-    const bindings: readonly (readonly [string, () => void])[] = [
+    const ifFinished = (f: () => void) => (): void => {
+      if (this.finished) f();
+    };
+    const restart = ifFinished(() => this.scene.restart());
+    const toSelect = ifFinished(() => this.scene.start("select"));
+    const ui = new BattleUi(this, battleView(initialGameState(characters), "Player"), {
+      onRestart: restart,
+      onBackToSelect: toSelect,
+    });
+
+    bindKeys(this, [
       [
         "keydown-A",
         () => {
@@ -58,9 +71,8 @@ export class BattleScene extends Phaser.Scene {
         },
       ],
       ["keydown-R", restart],
-    ];
-    const keyboard = this.input.keyboard;
-    for (const [event, handler] of bindings) keyboard?.on(event, handler);
+      ["keydown-C", toSelect],
+    ]);
 
     const hostLayer = Layer.mergeAll(
       Layer.succeed(PlayerInput, {
@@ -82,19 +94,17 @@ export class BattleScene extends Phaser.Scene {
           }),
       }),
     );
-    const env = Layer.provideMerge(randomCpuLayer, phaserRandomLayer(seed + this.restarts));
+    const env = Layer.provideMerge(randomCpuLayer, phaserRandomLayer(seed));
     const program = playRound({ balance: data.balance, characters }).pipe(Effect.provide(Layer.merge(hostLayer, env)));
 
     const fiber = Effect.runFork(program);
-    const generation = this.restarts;
     fiber.addObserver((exit) => {
-      // リスタートで中断された旧 Fiber の完了通知は無視する
-      if (generation !== this.restarts) return;
+      // リスタート・画面遷移で中断された旧 Fiber の完了通知は無視する
+      if (generation !== this.generation) return;
       this.onFinished(exit, ui);
       this.events.emit(BATTLE_FINISHED, exit);
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      for (const [event, handler] of bindings) keyboard?.off(event, handler);
       Effect.runFork(Fiber.interrupt(fiber));
     });
   }

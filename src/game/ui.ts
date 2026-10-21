@@ -6,10 +6,7 @@ import { MOVE_LABEL, MOVES, type Move, type Outcome } from "../core/move";
 import type { Side } from "../core/side";
 import type { BattleView, ChoiceView, OpponentView, OwnView } from "../core/view";
 import { createAvatar, type FighterAvatar } from "./avatar";
-
-/** 16:9 固定の論理解像度。 */
-export const GAME_WIDTH = 1280;
-export const GAME_HEIGHT = 720;
+import { createButton, GAME_HEIGHT, GAME_WIDTH, textStyle } from "./widgets";
 
 /** 演出時間（ms）。 */
 export const TIMING = {
@@ -17,14 +14,8 @@ export const TIMING = {
   turnIntro: 250,
   skillBanner: 1500,
   reveal: 1300,
+  endButtons: 600,
 } satisfies Record<string, number>;
-
-const FONT = "sans-serif";
-const textStyle = (size: number, color = "#ffffff"): Phaser.Types.GameObjects.Text.TextStyle => ({
-  fontFamily: FONT,
-  fontSize: `${String(size)}px`,
-  color,
-});
 
 const handText = (hand: Hand): string => MOVES.map((m) => `${MOVE_LABEL[m]}${String(hand[m])}`).join("  ");
 const discardText = (discard: readonly Move[]): string =>
@@ -41,6 +32,7 @@ interface HpBar {
 /** UI から Scene へ返す操作要求。 */
 export interface UiHandlers {
   readonly onRestart: () => void;
+  readonly onBackToSelect: () => void;
 }
 
 interface Selection {
@@ -67,7 +59,8 @@ export class BattleUi {
   private readonly bannerBody: Phaser.GameObjects.Text;
   private readonly cards: Record<Move, { box: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text }>;
   private readonly hint: Phaser.GameObjects.Text;
-  private readonly restartButton: Phaser.GameObjects.Container;
+  /** 試合終了後に手札カードの位置へ出すボタン。 */
+  private readonly endButtons: readonly Phaser.GameObjects.Container[];
   private selection: Selection | null = null;
 
   constructor(
@@ -101,7 +94,11 @@ export class BattleUi {
       Guard: this.makeCard("Guard", GAME_WIDTH / 2),
       Step: this.makeCard("Step", GAME_WIDTH / 2 + 170),
     };
-    this.restartButton = this.makeButton(GAME_WIDTH / 2, 390, "リスタート (R)", handlers.onRestart).setVisible(false);
+    this.endButtons = [
+      createButton(scene, GAME_WIDTH / 2 - 140, 620, "リスタート (R)", handlers.onRestart, 250),
+      createButton(scene, GAME_WIDTH / 2 + 140, 620, "キャラ選択へ (C)", handlers.onBackToSelect, 250),
+    ];
+    for (const b of this.endButtons) b.setVisible(false);
     this.hint = scene.add.text(GAME_WIDTH / 2, 700, "", textStyle(18, "#9aa4b8")).setOrigin(0.5);
 
     this.bannerBg = scene.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, 170, 0x000000, 0.8);
@@ -141,18 +138,6 @@ export class BattleUi {
     });
     const label = this.scene.add.text(x, 620, "", { ...textStyle(30), align: "center" }).setOrigin(0.5);
     return { box, label };
-  }
-
-  private makeButton(x: number, y: number, text: string, onClick: () => void): Phaser.GameObjects.Container {
-    const bg = this.scene.add
-      .rectangle(0, 0, 220, 56, 0x3b4252)
-      .setStrokeStyle(3, 0xffd866)
-      .setInteractive({ useHandCursor: true });
-    bg.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => bg.setFillStyle(0x4c566a));
-    bg.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OUT, () => bg.setFillStyle(0x3b4252));
-    bg.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, onClick);
-    const label = this.scene.add.text(0, 0, text, textStyle(24)).setOrigin(0.5);
-    return this.scene.add.container(x, y, [bg, label]);
   }
 
   private renderHp(side: Side, hp: number, maxHp: number): void {
@@ -280,7 +265,14 @@ export class BattleUi {
       case "RoundEnded":
         this.turnText.setText("試合終了");
         this.message.setText(this.resultText(event.view, event.result));
-        this.restartButton.setVisible(true);
+        for (const { box, label } of Object.values(this.cards)) {
+          box.setVisible(false);
+          label.setVisible(false);
+        }
+        // 手札を連打していた指で誤って押さないよう、少し遅らせて出す
+        this.scene.time.delayedCall(TIMING.endButtons, () => {
+          for (const b of this.endButtons) b.setVisible(true);
+        });
         return after(0);
     }
   }
