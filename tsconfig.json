@@ -20,5 +20,7 @@
     "skipLibCheck": true,
     "noEmit": true
   },
+  // Phaser の型宣言を明示的に取り込む。exports / types の解決に依存しない。
+  "files": ["node_modules/phaser/types/phaser.d.ts"],
   "include": ["src", "test", "vite.config.ts", "vitest.config.ts", "eslint.config.js"]
 }
