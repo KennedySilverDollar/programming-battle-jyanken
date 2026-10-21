@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "effect": "^3.22.3",
@@ -19,6 +22,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@tauri-apps/cli": "^2.12.4",
     "eslint": "^10.13.0",
     "prettier": "^3.9.10",
     "typescript": "^5.9.3",

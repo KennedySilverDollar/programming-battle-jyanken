@@ -5,19 +5,49 @@
 > 現在は **骨格段階**：キャラ定義・判定テーブル・スキル・矩形表示・1 試合の戦闘ループのみ。
 > ベストオブ 3、UI 強化、エフェクトはこの後に段階的に追加する。
 
-## 実行
+## 実行（デスクトップアプリ / Tauri）
 
 ```sh
 npm install
-npm run dev        # http://localhost:5173/
-npm run check      # typecheck + lint + test
-npm run build
+npm run tauri:dev     # 開発用ウィンドウを起動（Vite の HMR 付き）
+npm run tauri:build   # リリースビルド → src-tauri/target/release/bundle/ に .deb / .rpm / AppImage
+npm run check         # typecheck + lint + test
 ```
 
-URL クエリでキャラとシードを指定できる：`/?player=python&cpu=haskell&seed=42`
-（キャラ ID: `python` / `javascript` / `cpp` / `haskell`。seed 省略時は時刻から決定）
+初回は Rust と WebView のシステムライブラリが必要（[公式の前提条件](https://v2.tauri.app/start/prerequisites/)）：
 
-操作：**A / D** で手を選ぶ、**J** で決定、試合終了後に **R** でリスタート。
+```sh
+# Rust
+curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+
+# Debian / Ubuntu
+sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+# Fedora
+sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel
+sudo dnf group install "c-development"
+# Arch
+sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool
+```
+
+特定の形式だけ作るなら `npm run tauri:build -- --bundles deb` のように指定する。
+
+### ブラウザで動かす場合
+
+```sh
+npm run dev        # http://localhost:5173/
+```
+
+ブラウザでは URL クエリでキャラとシードを指定できる：`/?player=python&cpu=haskell&seed=42`
+（キャラ ID: `python` / `javascript` / `cpp` / `haskell`。seed 省略時は時刻から決定）。
+Tauri 版は URL を指定できないため、既定の Python vs C++・ランダムシードで始まる（キャラ選択画面は今後追加）。
+
+操作（クリックとキーボードはいつでも併用可）：
+
+| 操作 | クリック | キーボード |
+| --- | --- | --- |
+| 手を選ぶ | カードにカーソルを乗せる | **A / D** |
+| 決定 | カードをクリック | **J** |
+| リスタート（試合終了後） | 「リスタート」ボタン | **R** |
 
 ## 構成
 
@@ -44,6 +74,7 @@ src/
     phaserRandom.ts     Phaser.Math.RND を包む RandomService Layer
     launch.ts           URL クエリのパース
 test/                   vitest（シード固定スタブ・スクリプト入力で戦闘を検証）
+src-tauri/              Tauri（デスクトップ用ウィンドウ。ゲーム本体は dist/ をそのまま表示）
 ```
 
 ## キャラクターの追加

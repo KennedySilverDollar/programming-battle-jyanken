@@ -30,7 +30,13 @@ export class BattleScene extends Phaser.Scene {
   create(): void {
     this.finished = false;
     const { data, characters, seed } = this.config;
-    const ui = new BattleUi(this, battleView(initialGameState(characters), "Player"));
+    const restart = (): void => {
+      if (this.finished) {
+        this.restarts += 1;
+        this.scene.restart();
+      }
+    };
+    const ui = new BattleUi(this, battleView(initialGameState(characters), "Player"), { onRestart: restart });
 
     const bindings: readonly (readonly [string, () => void])[] = [
       [
@@ -51,15 +57,7 @@ export class BattleScene extends Phaser.Scene {
           ui.confirm();
         },
       ],
-      [
-        "keydown-R",
-        () => {
-          if (this.finished) {
-            this.restarts += 1;
-            this.scene.restart();
-          }
-        },
-      ],
+      ["keydown-R", restart],
     ];
     const keyboard = this.input.keyboard;
     for (const [event, handler] of bindings) keyboard?.on(event, handler);
