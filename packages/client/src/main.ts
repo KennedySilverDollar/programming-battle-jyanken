@@ -9,6 +9,7 @@ import { SelectScene } from "./game/SelectScene";
 import { GameSession } from "./game/session";
 import { GAME_HEIGHT, GAME_WIDTH } from "./game/widgets";
 import { LobbyScene } from "./online/LobbyScene";
+import { serverUrl, wakeServer } from "./online/connection";
 import { OnlineBattleScene } from "./online/OnlineBattleScene";
 
 const showFatal = (message: string): void => {
@@ -50,6 +51,8 @@ void Effect.runPromiseExit(loadLaunchConfig(window.location.search)).then((exit)
         ],
       });
       setQuality(game.registry, config.quality);
+      // オンライン対戦のサーバーを先に起こしておく（休止からの起動待ちを短くする）
+      if (import.meta.env.PROD) Effect.runFork(wakeServer(serverUrl()));
       // 開発時のみ：E2E テストや性能計測からゲームの状態を参照できるようにする
       if (import.meta.env.DEV) Reflect.set(window, "__game", game);
     },

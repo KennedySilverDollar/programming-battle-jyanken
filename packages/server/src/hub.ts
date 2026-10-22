@@ -193,9 +193,13 @@ export const makeHub = (config: ServerConfig, data: GameData): Effect.Effect<Hub
     let nextConnId = 1;
 
     const now = Clock.currentTimeMillis;
-    /** 指定時間後にロックを取って実行する（スコープが閉じれば中断される）。 */
+    /**
+     * 指定時間後にロックを取って実行する（スコープが閉じれば中断される）。
+     * 切断の後始末（ensuring の中＝中断不可の領域）から呼ばれても、待機は中断できるようにする
+     * （そうしないと、終了時に再接続猶予の満了までスコープが閉じない）。
+     */
     const after = (ms: number, effect: Effect.Effect<void>): Effect.Effect<void> =>
-      Effect.asVoid(Effect.forkIn(Effect.zipRight(Effect.sleep(ms), locked(effect)), scope));
+      Effect.asVoid(Effect.forkIn(Effect.interruptible(Effect.zipRight(Effect.sleep(ms), locked(effect))), scope));
 
     // -------------------------------------------------------------------------
     // 送信

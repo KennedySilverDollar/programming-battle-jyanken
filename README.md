@@ -62,26 +62,50 @@ npm run check        # typecheck + lint + test（全パッケージ）
 3. 相手は「コードで参加 (J)」でコードを入力（招待リンクなら入力済み）して Enter
 4. そろったらルームの作成者が「開始 (Enter)」。ベストオブ 3 の後、両者が「再戦 (R)」を押すと同じキャラで次のマッチ
 
-クライアントの接続先はビルド時の `VITE_SERVER_URL`（例 `VITE_SERVER_URL=wss://battle.example.com npm run build`）。
+クライアントの接続先はビルド時の `VITE_SERVER_URL`（例 `VITE_SERVER_URL=wss://xxx.onrender.com npm run build`）。
 未指定なら、ページと同じホストの 8787 番に `ws://`（https のページなら `wss://`）でつなぐ。
 通信が切れても 30 秒以内なら自動で再接続して続きから戻る（sessionToken はローカルストレージにだけ保存）。
 
-### デプロイ
+### デプロイ（サーバー：Render ／ クライアント：Cloudflare Pages）
 
-**クライアント**は静的サイト。Cloudflare Pages / Workers の静的アセット（ルートの `wrangler.jsonc`）で配信できる：
+サーバーはルームの状態をメモリに持つ常駐プロセスなので Render の Web Service で動かし、
+クライアント（静的サイト）は Cloudflare Pages で配信する。
+
+**1. サーバー（Render）** — ルートの `render.yaml`（Blueprint）で構成済み
+
+1. Render のダッシュボードで「New → Blueprint」→ このリポジトリを選ぶ
+2. 環境変数 `ALLOWED_ORIGINS` に Pages の URL を入れる（カンマ区切り。`*.` でプレビュー環境のサブドメインも許可できる）
+   例：`https://programming-battle-jyanken.pages.dev,https://*.programming-battle-jyanken.pages.dev`
+3. デプロイが終わると `https://<サービス名>.onrender.com/healthz` が `{"ok":true,"rooms":0}` を返す
+
+| 項目 | 値（`render.yaml`） |
+| --- | --- |
+| Runtime / Region / Plan | Node / Singapore（日本に最も近い）/ Free |
+| Build command | `npm ci --include=dev && npm run build:server` |
+| Start command | `node packages/server/dist/server.mjs` |
+| Health check | `GET /healthz`（WebSocket 以外の HTTP は 426） |
+| 環境変数 | `NODE_VERSION=22`、`ALLOWED_ORIGINS`（`PORT` は Render が設定） |
+| 自動デプロイ | `main` の `packages/server`・`packages/shared`・lockfile・`render.yaml` が変わったときだけ |
+
+注意：
+
+- **無料プランは 15 分アクセスが無いと休止**し、次の接続で起動するまで 1 分ほどかかる。
+  クライアントは起動時に `/healthz` を 1 回叩いてサーバーを起こし、つながるまで 2 秒おきに再試行する（ロビーに「再試行しています」と出る）
+- **再デプロイ・再起動でルームは消える**（メモリ上の状態のため）。終了時（SIGTERM）は全接続を 1012（Service Restart）で閉じ、
+  クライアントは再接続して `SessionExpired` を受け取り、ロビーへ戻る
+- ルームを 1 プロセスで持つので、インスタンスは 1 台（`numInstances: 1`）。水平分割はしない
+
+**2. クライアント（Cloudflare Pages）**
 
 | 項目 | 値 |
 | --- | --- |
 | Build command | `npm run build` |
 | Build output directory | `packages/client/dist` |
-| 環境変数 | `VITE_SERVER_URL=wss://<サーバーのホスト>` |
+| 環境変数 | `VITE_SERVER_URL=wss://<サービス名>.onrender.com`（ビルド時に埋め込まれる） |
 | Node.js のバージョン | `.nvmrc` の 22 |
 
-CLI から直接上げる場合は `npx wrangler deploy`（または `npx wrangler pages deploy packages/client/dist`）。
-
-**サーバー**は常駐する Node.js プロセス（ルームの状態をメモリに持つ）なので、Cloudflare Pages には載らない。
-Node 22 が動く環境（Fly.io・Render・Railway・VPS など）で `npm ci && npm run build:server && PORT=8787 node packages/server/dist/server.mjs`。
-TLS はリバースプロキシ等で終端し、クライアントからは `wss://` でつなぐ。1 プロセスで全ルームを持つので、水平分割はしない前提。
+CLI から直接上げる場合は `VITE_SERVER_URL=wss://<サービス名>.onrender.com npm run build && npx wrangler deploy`
+（ルートの `wrangler.jsonc` が `packages/client/dist` を配信する）。
 
 実績の解除状態はブラウザのローカルストレージに保存されるので、ドメインごと・ブラウザごとに別になる。
 
@@ -146,7 +170,7 @@ packages/
     random.ts           RandomService（matchId から導くシード・テスト用スタブ）
   server/src/           対戦サーバー（Node.js + Effect + @effect/platform の SocketServer）
     hub.ts              ルーム・セッション・タイマー・採番・流量制限（通信手段に非依存）
-    ws.ts               WebSocket と Hub をつなぐ薄い層
+    ws.ts               HTTP（/healthz）＋ WebSocket の待ち受けと Hub をつなぐ薄い層（Origin の許可リスト・SIGTERM で全接続を閉じる）
     errors.ts / config.ts / ids.ts / main.ts
   server/test/          偽の接続と TestClock で、採番・冪等性・タイムアウト・再接続・決定論を検証
   client/src/

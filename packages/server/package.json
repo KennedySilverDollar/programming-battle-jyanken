@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
-    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node22 --packages=external --outfile=dist/server.mjs",
+    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node22 --external:effect --external:@effect/* --external:ws --outfile=dist/server.mjs",
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
@@ -15,10 +15,12 @@
     "@effect/platform-node": "^0.108.3",
     "@pbj/shared": "*",
     "effect": "^3.22.3",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2"
   }
 }

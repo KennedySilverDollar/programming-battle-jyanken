@@ -136,7 +136,11 @@ export class OnlineConnection {
               this.lastSync = Option.some(m);
               break;
             case "Error":
-              if (m.code === "SessionExpired") this.tokens.clear();
+              // サーバーの再起動などでルームが消えた：保存したトークンと最後の状態を捨てる
+              if (m.code === "SessionExpired") {
+                this.tokens.clear();
+                this.lastSync = Option.none();
+              }
               break;
             case "MoveAccepted":
             case "TurnResolved":
@@ -187,6 +191,15 @@ export class OnlineConnection {
     );
   }
 }
+
+/**
+ * サーバーを起こしておく（Render の無料プランは 15 分アクセスが無いと休止し、起動に 1 分ほどかかる）。
+ * タイトル画面の時点で HTTP のヘルスチェックを 1 回叩くだけで、結果は使わない。
+ */
+export const wakeServer = (url: string): Effect.Effect<void> =>
+  Effect.ignore(
+    Effect.tryPromise(() => fetch(`${url.replace(/^ws/, "http")}/healthz`, { mode: "no-cors", cache: "no-store" })),
+  );
 
 /** 接続先：VITE_SERVER_URL（ビルド時に指定）。無ければ同じホストの 8787 番。 */
 export const serverUrl = (): string => {

@@ -321,6 +321,15 @@ describe("再接続", () => {
       }),
     ));
 
+  it("切断の後始末（中断不可の領域）で起動したタイマーも、終了時に待たずに中断される", () =>
+    runHub((hub) =>
+      Effect.gen(function* () {
+        const { p2 } = yield* startedRoom(hub);
+        // WebSocket 層は ensuring の中で closed を呼ぶ。TestClock は進めないので、中断できなければここで止まる
+        yield* Effect.uninterruptible(p2.disconnect);
+      }),
+    ));
+
   it("試合中の退出はその側の負け（Forfeit）", () =>
     runHub((hub) =>
       Effect.gen(function* () {

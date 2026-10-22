@@ -271,6 +271,8 @@ export class OnlineBattleScene extends Phaser.Scene {
           }
           case "Error":
             ui.notice(errorText(m.code, m.message));
+            // サーバーの再起動などでルームが消えていたら、ロビーへ戻る
+            if (m.code === "SessionExpired") toLobby();
             return;
           case "RoomJoined":
           case "MoveAccepted":

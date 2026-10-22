@@ -22,7 +22,7 @@ const decodeRoomCode = Schema.decodeUnknownOption(RoomCode);
 const STATUS_TEXT: Readonly<Record<ConnectionStatus, string>> = {
   connecting: "サーバーに接続しています…",
   open: "サーバーに接続しました",
-  reconnecting: "サーバーに接続できません。再試行しています…",
+  reconnecting: "サーバーに接続できません。再試行しています…（休止中のサーバーは起動に 1 分ほどかかります）",
 };
 
 /**
