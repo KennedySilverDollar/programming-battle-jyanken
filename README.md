@@ -6,7 +6,7 @@
 
 ## ルール
 
-- 手は **斬撃 > 刺突 > 打撃 > 斬撃** の三すくみ。両者が伏せて選び、そろってからオープンする
+- 手は **斬撃 > 刺突 > 打撃 > 斬撃** の三すくみ（＝ ✊グー > ✌️チョキ > ✋パー > ✊グー）。両者が伏せて選び、そろってからオープンする
 - ダメージ：斬撃 20 ／ 刺突 15 ／ 打撃 10 ＋ 相手の手札を 1 枚捨て札へ。あいこは両者ノーダメージで 1 枚ずつ消費
 - 負けるのは **HP 0 のときだけ**。手札 0 は「素手」：好きな手を出せるが与ダメージ 1/2（Java・Haskell は 1/3、端数切り上げ）
 - ベストオブ 3（2 本先取）。試合ごとに HP・手札・スキル・隠れデメリットの累積をリセット
@@ -36,37 +36,29 @@
 - **STW の -10** は素手補正の後に引く（0 未満にはならない）
 - **隠れデメリットの条件**（「手札 0 のターン」など）は手を選んだ時点の手札で判定する
 
-## 実行（デスクトップアプリ / Tauri）
+## 実行（ブラウザ）
 
 ```sh
 npm install
-npm run tauri:dev     # 開発用ウィンドウを起動（Vite の HMR 付き）
-npm run tauri:build   # リリースビルド → src-tauri/target/release/bundle/ に .deb / .rpm / AppImage
-npm run check         # typecheck + lint + test
-```
-
-初回は Rust と WebView のシステムライブラリが必要（[公式の前提条件](https://v2.tauri.app/start/prerequisites/)）：
-
-```sh
-# Rust
-curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
-
-# Debian / Ubuntu
-sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
-# Fedora
-sudo dnf install webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel
-sudo dnf group install "c-development"
-# Arch
-sudo pacman -S --needed webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool
-```
-
-特定の形式だけ作るなら `npm run tauri:build -- --bundles deb` のように指定する。
-
-### ブラウザで動かす場合
-
-```sh
 npm run dev        # http://localhost:5173/
+npm run build      # 本番ビルド → dist/
+npm run preview    # dist/ をローカルで配信して確認
+npm run check      # typecheck + lint + test
 ```
+
+### Cloudflare Pages へのデプロイ
+
+静的サイトとしてそのまま配信できる（サーバー側の処理は無い）。Pages の設定：
+
+| 項目 | 値 |
+| --- | --- |
+| Framework preset | None（または Vite） |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Node.js のバージョン | `.nvmrc` の 22 が使われる |
+
+CLI から直接上げる場合は `npx wrangler pages deploy dist`。
+実績の解除状態はブラウザのローカルストレージに保存されるので、ドメインごと・ブラウザごとに別になる。
 
 起動するとキャラクター選択画面から始まる（自分 → CPU の順に選ぶ。同キャラ対戦も可）。
 
@@ -141,11 +133,11 @@ src/
     ui.ts               対戦画面の描画（サンクの可視化・STW・実績トーストなど）
     widgets.ts          共通部品（ボタン・文字スタイル・キー登録）
     fx.ts               演出部品（背景・フェード・火花・光彩・描画品質の自動調整）
-    avatar.ts           キャラ表示（矩形 → logoKey の画像があれば自動差し替え）
+    avatar.ts           キャラ表示（キャラ色のカード＋公式ロゴ。ロゴが無ければ絵文字）
     phaserRandom.ts     Phaser.Math.RND を包む RandomService Layer
     launch.ts           URL クエリのパース
 test/                   vitest（定数・シード固定の乱数スタブと台本入力で全スキル・隠れデメリットを検証）
-src-tauri/              Tauri（デスクトップ用ウィンドウ。ゲーム本体は dist/ をそのまま表示）
+public/logos/           各言語のロゴ（SVG）
 ```
 
 ## キャラクターの追加
@@ -160,3 +152,16 @@ src-tauri/              Tauri（デスクトップ用ウィンドウ。ゲーム
 
 - `Effect.assert` は Effect 3 に存在しないため、同等の `assertInvariant`（偽なら `Effect.dieMessage`）を `state.ts` に定義している。
   ターン境界ごとに HP 範囲・手札枚数・used フラグ・捨て札合計（手札＋捨て札＝初期＋生成）・サンク累積ダメージを検証する
+
+## ロゴについて
+
+`public/logos/` の各言語ロゴは [devicon](https://github.com/devicons/devicon)（MIT License, `public/logos/LICENSE-devicon.txt`）の
+“original” 版。MIT が適用されるのは devicon の収録物としての部分で、**ロゴそのものは各権利者の商標**。
+
+- Java：Oracle の商標。一般向けに公開する場合は Oracle の商標ガイドラインの確認が必要
+- C：公式ロゴは存在しないため、広く使われている非公式ロゴ
+- JavaScript：公式ロゴは存在しないため、コミュニティで広く使われている「JS」ロゴ
+- Python（PSF）・PHP・C++（Standard C++ Foundation）・Haskell：各団体の利用規約に従う
+
+試験公開の範囲を超えて配布する場合は、各ガイドラインを確認するか、`logoKey` の画像を差し替えること
+（`public/logos/<logoKey>.svg` を置き換えるだけで反映される）。

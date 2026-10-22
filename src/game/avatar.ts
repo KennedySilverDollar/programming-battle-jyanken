@@ -6,8 +6,8 @@ import { addGlow, desaturate, reducedMotion } from "./fx";
 export type Facing = 1 | -1;
 
 /**
- * キャラクターの見た目。今は色付き矩形＋言語名の仮置きで、
- * logoKey のテクスチャがロードされていれば画像に自動で差し替わる。
+ * キャラクターの見た目。キャラ色のカード＋公式ロゴ＋言語名。
+ * logoKey のテクスチャが無ければ絵文字で代用する。
  * 動きはすべてこのインターフェース越しに付けるので、画像に差し替えても演出はそのまま使える。
  */
 export interface FighterAvatar {
@@ -33,13 +33,30 @@ export interface FighterAvatar {
 
 export const AVATAR_SIZE = { width: 220, height: 240 } satisfies { width: number; height: number };
 
+/** ロゴの表示サイズ（正方形）。 */
+const LOGO_SIZE = 116;
+
+/** ロゴ画像の置き場所（public/logos/<logoKey>.svg）。 */
+export const logoUrl = (logoKey: string): string => `${import.meta.env.BASE_URL}logos/${logoKey}.svg`;
+
+/** 全キャラのロゴを読み込む（最初の Scene の preload で呼ぶ）。テクスチャは全 Scene で共有される。 */
+export const preloadLogos = (scene: Phaser.Scene, defs: readonly CharacterSpec[]): void => {
+  for (const d of defs) {
+    if (!scene.textures.exists(d.logoKey)) scene.load.svg(d.logoKey, logoUrl(d.logoKey), { width: 256, height: 256 });
+  }
+};
+
 interface Parts {
   /** 実際の見た目（矩形 or 画像）。 */
   readonly visuals: readonly Phaser.GameObjects.GameObject[];
   readonly setActive: (active: boolean) => void;
 }
 
-const rectParts = (scene: Phaser.Scene, def: CharacterSpec): Parts => {
+/**
+ * キャラ色のカードに、言語の公式ロゴ（logoKey のテクスチャ）を白いプレートに載せて表示する。
+ * ロゴが読み込めていなければ絵文字で代用する。
+ */
+const cardParts = (scene: Phaser.Scene, def: CharacterSpec): Parts => {
   const body = scene.add
     .rectangle(0, 0, AVATAR_SIZE.width, AVATAR_SIZE.height, def.placeholder.color)
     .setStrokeStyle(4, 0xffffff, 0.25);
@@ -52,20 +69,21 @@ const rectParts = (scene: Phaser.Scene, def: CharacterSpec): Parts => {
     0xffffff,
     0.08,
   );
-  const emoji = scene.add.text(0, -40, def.placeholder.emoji, { fontSize: "64px" }).setOrigin(0.5);
+  const emblem: Phaser.GameObjects.GameObject[] = scene.textures.exists(def.logoKey)
+    ? [
+        // ロゴは明るい背景向けにデザインされているので、白いプレートに載せる
+        scene.add.circle(0, -30, LOGO_SIZE / 2 + 12, 0xf5f7fa).setStrokeStyle(3, 0x000000, 0.15),
+        scene.add.image(0, -30, def.logoKey).setDisplaySize(LOGO_SIZE, LOGO_SIZE),
+      ]
+    : [scene.add.text(0, -40, def.placeholder.emoji, { fontSize: "64px" }).setOrigin(0.5)];
   const name = scene.add
-    .text(0, 60, def.name, { fontFamily: "sans-serif", fontSize: "32px", fontStyle: "bold", color: "#ffffff" })
+    .text(0, 75, def.name, { fontFamily: "sans-serif", fontSize: "30px", fontStyle: "bold", color: "#ffffff" })
     .setOrigin(0.5)
     .setStroke("#000000", 5);
   return {
-    visuals: [body, sheen, emoji, name],
+    visuals: [body, sheen, ...emblem, name],
     setActive: (active) => body.setStrokeStyle(4, 0xffffff, active ? 1 : 0.25),
   };
-};
-
-const imageParts = (scene: Phaser.Scene, def: CharacterSpec): Parts => {
-  const image = scene.add.image(0, 0, def.logoKey).setDisplaySize(AVATAR_SIZE.width, AVATAR_SIZE.height);
-  return { visuals: [image], setActive: (active) => image.setAlpha(active ? 1 : 0.85) };
 };
 
 /**
@@ -79,7 +97,7 @@ export const createAvatar = (
   y: number,
   facing: Facing = 1,
 ): FighterAvatar => {
-  const parts = scene.textures.exists(def.logoKey) ? imageParts(scene, def) : rectParts(scene, def);
+  const parts = cardParts(scene, def);
   const overlay = scene.add.rectangle(0, 0, AVATAR_SIZE.width, AVATAR_SIZE.height, 0xffffff, 1).setAlpha(0);
   const rig = scene.add.container(0, 0, [...parts.visuals, overlay]);
   const shadow = scene.add.ellipse(0, AVATAR_SIZE.height / 2 + 18, AVATAR_SIZE.width * 0.8, 22, 0x000000, 0.35);
