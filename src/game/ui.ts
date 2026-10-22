@@ -2,7 +2,7 @@ import { Option } from "effect";
 import * as Phaser from "phaser";
 import type { BattleEvent, EffectiveMove, RevealedPlay, RoundResult, TurnNote } from "../core/events";
 import type { Hand } from "../core/hand";
-import { MOVE_LABEL, MOVE_NAME, MOVES, type Move, type Outcome } from "../core/move";
+import { MOVE_HAND, MOVE_LABEL, MOVE_NAME, MOVES, type Move, type Outcome } from "../core/move";
 import { opponentOf, SIDES, type Side } from "../core/side";
 import type { TraitId } from "../core/traits";
 import type { BattleView, ChoiceView, ExtraChoiceView, OpponentView, OwnView, ThunkView } from "../core/view";
@@ -48,6 +48,8 @@ const TRAIT_MESSAGE: Readonly<Record<TraitId, string>> = {
 const AVATAR_X: Readonly<Record<Side, number>> = { Player: 320, Cpu: GAME_WIDTH - 320 };
 const AVATAR_Y = 270;
 const CARD_Y = 620;
+const CARD_W = 150;
+const CARD_H = 112;
 const THUNK_COLOR = 0xb48ead;
 const THUNK_CSS = "#d7a6ff";
 /** 左右のアバターに重ならない中央メッセージの最大幅。 */
@@ -194,6 +196,16 @@ export class BattleUi {
     ];
     for (const b of this.endButtons) b.setVisible(false);
     this.hint = scene.add.text(GAME_WIDTH / 2, 700, "", textStyle(18, "#9aa4b8")).setOrigin(0.5);
+    // じゃんけんの対応（常に表示）
+    scene.add
+      .text(
+        GAME_WIDTH / 2,
+        536,
+        MOVES.map((m) => `${MOVE_HAND[m].emoji}${MOVE_HAND[m].name}（${MOVE_NAME[m]}）`).join("  ＞  ") +
+          `  ＞  ${MOVE_HAND.Slash.emoji}`,
+        textStyle(16, "#9aa4b8"),
+      )
+      .setOrigin(0.5);
     this.banner = this.makeBanner();
 
     this.render(view, Option.none());
@@ -235,7 +247,7 @@ export class BattleUi {
   /** 手札カード。ホバーで持ち上がって光り、クリックで決定（キーボードの A/D・J と同じ動作）。 */
   private makeCard(move: Move, x: number): HandCard {
     const box = this.scene.add
-      .rectangle(0, 0, 140, 100, 0x2a2f3a)
+      .rectangle(0, 0, CARD_W, CARD_H, 0x2a2f3a)
       .setStrokeStyle(3, 0x596275)
       .setInteractive({ useHandCursor: true });
     box.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => {
@@ -244,9 +256,9 @@ export class BattleUi {
     box.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
       this.pick(move);
     });
-    const label = this.scene.add.text(0, 0, "", { ...textStyle(28), align: "center" }).setOrigin(0.5);
+    const label = this.scene.add.text(0, 0, "", { ...textStyle(20), align: "center", lineSpacing: 2 }).setOrigin(0.5);
     const root = this.scene.add.container(x, CARD_Y, [box, label]);
-    return { root, box, label, glow: addGlow(this.scene, root, 140, 100, 0xffd866), look: null };
+    return { root, box, label, glow: addGlow(this.scene, root, CARD_W, CARD_H, 0xffd866), look: null };
   }
 
   private makeRevealCard(): RevealCard {
@@ -390,7 +402,10 @@ export class BattleUi {
       const card = this.cards[m];
       const count = self.hand[m];
       const lockMark = locked === m ? "  🔒1" : "";
-      card.label.setText(self.bare ? `${MOVE_LABEL[m]}\n素手` : `${MOVE_LABEL[m]}\n×${String(count)}${lockMark}`);
+      // 斬撃 / ✊ グー / ×3 の 3 段。素手なら枚数の代わりに「素手」
+      const hand = `${MOVE_HAND[m].emoji} ${MOVE_HAND[m].name}`;
+      const amount = self.bare ? "素手" : `×${String(count)}${lockMark}`;
+      card.label.setText(`${MOVE_NAME[m]}\n${hand}\n${amount}`);
       const playable = sel === null ? self.bare || count > 0 : sel.view.playable.includes(m);
       const look: CardLook = !playable ? "empty" : sel === null ? "locked" : sel.cursor === m ? "focus" : "idle";
       this.setCardLook(card, look);
@@ -551,7 +566,11 @@ export class BattleUi {
     switch (e._tag) {
       case "Move":
         return e.move === p.chosen
-          ? { label: MOVE_LABEL[e.move], sub: bare, small: false }
+          ? {
+              label: MOVE_LABEL[e.move],
+              sub: `${MOVE_HAND[e.move].emoji} ${MOVE_HAND[e.move].name}${bare === "" ? "" : ` · ${bare}`}`,
+              small: false,
+            }
           : { label: `${MOVE_LABEL[p.chosen]}→${MOVE_LABEL[e.move]}`, sub: "== ?!", small: true };
       case "Undefined":
         return { label: "undefined", sub: MOVE_NAME[p.chosen], small: true };
