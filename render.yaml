@@ -1,0 +1,34 @@
+# Render Blueprint：対戦サーバー（packages/server）を Web Service として動かす。
+# Render のダッシュボードで「New → Blueprint」からこのリポジトリを選ぶと、この定義で作成される。
+# クライアント（静的サイト）は Cloudflare Pages で配信し、ビルド時の VITE_SERVER_URL でここを指す。
+services:
+  - type: web
+    name: programming-battle-jyanken-server
+    runtime: node
+    # 日本から最も近いリージョン（Render に東京は無い）
+    region: singapore
+    plan: free
+    branch: main
+    # esbuild（devDependencies）でバンドルするため dev 依存も入れる
+    buildCommand: npm ci --include=dev && npm run build:server
+    startCommand: node packages/server/dist/server.mjs
+    healthCheckPath: /healthz
+    # ルームの状態はメモリにあるので、1 インスタンスで動かす（再起動するとルームは消える）
+    numInstances: 1
+    autoDeploy: true
+    # サーバーとゲームデータに関わる変更のときだけ再デプロイする
+    buildFilter:
+      paths:
+        - packages/server/**
+        - packages/shared/**
+        - package.json
+        - package-lock.json
+        - render.yaml
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # PORT は Render が設定する（既定 10000）。HOST は 0.0.0.0 のまま
+      # 接続を許すクライアントの Origin（カンマ区切り。*. でサブドメインを許可）。
+      # 例：https://programming-battle-jyanken.pages.dev,https://*.programming-battle-jyanken.pages.dev
+      - key: ALLOWED_ORIGINS
+        sync: false

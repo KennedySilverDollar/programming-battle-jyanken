@@ -1,0 +1,18 @@
+import { Array as Arr, Effect, Layer } from "effect";
+import type { Move } from "./move";
+import { RandomService } from "./random";
+import { CpuStrategy } from "./services";
+
+/** CPU：出せる手から一様ランダム。 */
+export const randomCpuLayer: Layer.Layer<CpuStrategy, never, RandomService> = Layer.effect(
+  CpuStrategy,
+  Effect.map(RandomService, (random) => {
+    const pickFrom = (moves: readonly Move[]): Effect.Effect<Move> =>
+      Arr.isNonEmptyReadonlyArray(moves) ? random.pick(moves) : Effect.dieMessage("出せる手が無い");
+    return {
+      chooseMove: (view) => pickFrom(view.playable),
+      // 追加の 1 手は相手の手が見えない状態で選ぶので、これもランダム
+      chooseExtraMove: (view) => pickFrom(view.playable),
+    };
+  }),
+);

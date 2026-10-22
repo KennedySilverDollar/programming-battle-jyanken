@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // 共有ロジックは DOM にも Node にも依存させない
+    "lib": ["ES2022"],
+    "types": []
+  },
+  "include": ["src", "test", "vitest.config.ts"]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@pbj/shared",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "プロトコル・スキーマ・判定ロジック（純粋関数。DOM にも Node にも依存しない）",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "effect": "^3.22.3"
+  }
+}
