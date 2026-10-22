@@ -16,7 +16,7 @@ const roster = gameData.roster;
 const ids = (s: SelectState) => (s._tag === "Done" ? [s.matchup.Player.id, s.matchup.Cpu.id] : []);
 
 describe("キャラ選択の状態遷移", () => {
-  it("4 キャラすべてを自分・CPU の両方に選べる（ミラー含む 16 通り）", () => {
+  it("7 キャラすべてを自分・CPU の両方に選べる（ミラー含む 49 通り）", () => {
     const pairs = new Set<string>();
     roster.forEach((_, p) => {
       roster.forEach((_, c) => {
@@ -24,14 +24,14 @@ describe("キャラ選択の状態遷移", () => {
         pairs.add(ids(s).join("-"));
       });
     });
-    expect(pairs.size).toBe(16);
+    expect(pairs.size).toBe(49);
     expect(pairs).toContain("haskell-haskell");
   });
 
   it("A/D のカーソル移動は端で折り返す", () => {
     const left = moveCursor(initialSelect(), -1, roster);
-    expect(focused(left, roster)?.id).toBe("haskell");
-    expect(focused(moveCursor(left, 1, roster), roster)?.id).toBe("python");
+    expect(focused(left, roster)?.id).toBe("php");
+    expect(focused(moveCursor(left, 1, roster), roster)?.id).toBe("java");
   });
 
   it("CPU 選択から戻ると、自分が選んでいたキャラにカーソルが戻る", () => {
@@ -46,7 +46,7 @@ describe("キャラ選択の状態遷移", () => {
 
   it("決定後は入力を受け付けない", () => {
     const done = confirm(confirm(initialSelect(), roster), roster);
-    expect(ids(done)).toEqual(["python", "python"]);
+    expect(ids(done)).toEqual(["java", "java"]);
     expect(moveCursor(done, 1, roster)).toBe(done);
     expect(confirm(done, roster)).toBe(done);
     expect(back(done, roster)).toBe(done);

@@ -1,4 +1,5 @@
-import { Option } from "effect";
+import { type Layer, Option } from "effect";
+import type { AchievementStore } from "../core/achievements";
 import type { GameData } from "../core/gameData";
 import type { Matchup } from "./selectState";
 
@@ -16,6 +17,10 @@ export class GameSession {
     readonly data: GameData,
     private readonly baseSeed: number,
     preset: Option.Option<Matchup>,
+    /** 実績の保存先（本番はローカルストレージ）。 */
+    readonly achievementStore: Layer.Layer<AchievementStore>,
+    /** 開発用：確率判定を固定する。本番ビルドでは常に None。 */
+    readonly forcedChance: Option.Option<"always" | "never"> = Option.none(),
   ) {
     this.matchup = preset;
     this.autoStart = Option.isSome(preset);

@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import type { CharacterDef } from "../core/characters";
+import type { CharacterSpec } from "../core/characters";
 import { addGlow, desaturate, reducedMotion } from "./fx";
 
 /** 画面上の向き。+1 は右（相手が右にいる）、-1 は左。 */
@@ -27,6 +27,8 @@ export interface FighterAvatar {
   celebrate(): void;
   /** 敗北：色を失って崩れる。 */
   defeat(): void;
+  /** 次の試合に向けて、勝敗の演出を元に戻す。 */
+  reset(): void;
 }
 
 export const AVATAR_SIZE = { width: 220, height: 240 } satisfies { width: number; height: number };
@@ -37,7 +39,7 @@ interface Parts {
   readonly setActive: (active: boolean) => void;
 }
 
-const rectParts = (scene: Phaser.Scene, def: CharacterDef): Parts => {
+const rectParts = (scene: Phaser.Scene, def: CharacterSpec): Parts => {
   const body = scene.add
     .rectangle(0, 0, AVATAR_SIZE.width, AVATAR_SIZE.height, def.placeholder.color)
     .setStrokeStyle(4, 0xffffff, 0.25);
@@ -61,7 +63,7 @@ const rectParts = (scene: Phaser.Scene, def: CharacterDef): Parts => {
   };
 };
 
-const imageParts = (scene: Phaser.Scene, def: CharacterDef): Parts => {
+const imageParts = (scene: Phaser.Scene, def: CharacterSpec): Parts => {
   const image = scene.add.image(0, 0, def.logoKey).setDisplaySize(AVATAR_SIZE.width, AVATAR_SIZE.height);
   return { visuals: [image], setActive: (active) => image.setAlpha(active ? 1 : 0.85) };
 };
@@ -72,7 +74,7 @@ const imageParts = (scene: Phaser.Scene, def: CharacterDef): Parts => {
  */
 export const createAvatar = (
   scene: Phaser.Scene,
-  def: CharacterDef,
+  def: CharacterSpec,
   x: number,
   y: number,
   facing: Facing = 1,
@@ -86,6 +88,7 @@ export const createAvatar = (
   const glow = addGlow(scene, rig, AVATAR_SIZE.width, AVATAR_SIZE.height, def.placeholder.color);
   const calm = reducedMotion();
   let idle: Phaser.Tweens.Tween | undefined;
+  let undoDefeat: (() => void) | undefined;
 
   const stopIdle = (): void => {
     idle?.stop();
@@ -151,8 +154,17 @@ export const createAvatar = (
     },
     defeat: () => {
       stopIdle();
-      desaturate(root);
+      undoDefeat ??= desaturate(root);
       scene.tweens.add({ targets: rig, angle: -facing * 8, y: 14, alpha: 0.6, duration: 600, ease: "Cubic.easeOut" });
+    },
+    reset: () => {
+      stopIdle();
+      scene.tweens.killTweensOf(rig);
+      rig.setPosition(0, 0).setAngle(0).setAlpha(1);
+      overlay.setAlpha(0);
+      glow.set(false);
+      undoDefeat?.();
+      undoDefeat = undefined;
     },
   };
 };

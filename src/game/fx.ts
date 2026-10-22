@@ -384,10 +384,19 @@ type Filterable = Phaser.GameObjects.GameObject & {
   readonly filters: Phaser.Types.GameObjects.FiltersInternalExternal | null;
 };
 
-/** グレースケール化（敗北演出）。WebGL のみ。Canvas 描画では半透明で代用。 */
-export const desaturate = (target: Filterable & { setAlpha(value: number): unknown }): void => {
+/** グレースケール化（敗北演出）。WebGL のみ。Canvas 描画では半透明で代用。返り値で元に戻す。 */
+export const desaturate = (target: Filterable & { setAlpha(value: number): unknown }): (() => void) => {
   target.enableFilters();
-  const matrix = target.filters?.internal.addColorMatrix();
-  if (matrix === undefined) target.setAlpha(0.6);
-  else matrix.colorMatrix.desaturate();
+  const filters = target.filters;
+  const matrix = filters?.internal.addColorMatrix();
+  if (filters === null || matrix === undefined) {
+    target.setAlpha(0.6);
+    return () => {
+      target.setAlpha(1);
+    };
+  }
+  matrix.colorMatrix.desaturate();
+  return () => {
+    filters.internal.remove(matrix);
+  };
 };

@@ -1,9 +1,9 @@
 import { Array as Arr, Option } from "effect";
-import type { CharacterDef, CharacterRoster } from "../core/characters";
+import type { CharacterSpec, CharacterRoster } from "../core/characters";
 import type { Side } from "../core/side";
 
 /** 対戦カード（自分と CPU のキャラ）。 */
-export type Matchup = Readonly<Record<Side, CharacterDef>>;
+export type Matchup = Readonly<Record<Side, CharacterSpec>>;
 
 /**
  * キャラ選択の状態遷移。Phaser に依存しない純粋関数。
@@ -13,7 +13,7 @@ export type Matchup = Readonly<Record<Side, CharacterDef>>;
  */
 export type SelectState =
   | { readonly _tag: "PickPlayer"; readonly cursor: number }
-  | { readonly _tag: "PickCpu"; readonly cursor: number; readonly player: CharacterDef }
+  | { readonly _tag: "PickCpu"; readonly cursor: number; readonly player: CharacterSpec }
   | { readonly _tag: "Done"; readonly matchup: Matchup };
 
 export const initialSelect = (cursor = 0): SelectState => ({ _tag: "PickPlayer", cursor });
@@ -71,5 +71,5 @@ export const back = (state: SelectState, roster: CharacterRoster): SelectState =
 };
 
 /** 現在カーソルが当たっているキャラ。 */
-export const focused = (state: SelectState, roster: CharacterRoster): CharacterDef | undefined =>
+export const focused = (state: SelectState, roster: CharacterRoster): CharacterSpec | undefined =>
   state._tag === "Done" ? undefined : roster[state.cursor];

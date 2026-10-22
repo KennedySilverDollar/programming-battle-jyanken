@@ -1,8 +1,8 @@
 import { Cause, Effect, Exit, Fiber, Layer, Option } from "effect";
 import * as Phaser from "phaser";
 import { randomCpuLayer } from "../core/ai";
-import { playRound } from "../core/battle";
-import type { RoundResult } from "../core/events";
+import { type MatchResult, playMatch } from "../core/battle";
+import { constantRandomLayer } from "../core/random";
 import { BattleEvents, PlayerInput } from "../core/services";
 import { initialGameState } from "../core/state";
 import { battleView } from "../core/view";
@@ -90,6 +90,13 @@ export class BattleScene extends Phaser.Scene {
             });
             return Effect.sync(cancel);
           }),
+        chooseExtraMove: (view) =>
+          Effect.async((resume) => {
+            const cancel = ui.beginExtraSelection(view, (move) => {
+              resume(Effect.succeed(move));
+            });
+            return Effect.sync(cancel);
+          }),
       }),
       Layer.succeed(BattleEvents, {
         publish: (event) =>
@@ -101,8 +108,14 @@ export class BattleScene extends Phaser.Scene {
           }),
       }),
     );
-    const env = Layer.provideMerge(randomCpuLayer, phaserRandomLayer(seed));
-    const program = playRound({ balance: data.balance, characters }).pipe(Effect.provide(Layer.merge(hostLayer, env)));
+    const random = Option.match(this.session.forcedChance, {
+      onNone: () => phaserRandomLayer(seed),
+      // 開発用：0 なら確率判定はすべて成立、0.999 ならすべて不成立
+      onSome: (c) => constantRandomLayer(c === "always" ? 0 : 0.999),
+    });
+    const env = Layer.mergeAll(Layer.provideMerge(randomCpuLayer, random), this.session.achievementStore);
+    // ベストオブ 3（R キーのリスタートはマッチの最初から）
+    const program = playMatch({ balance: data.balance, characters }).pipe(Effect.provide(Layer.merge(hostLayer, env)));
 
     const fiber = Effect.runFork(program);
     fiber.addObserver((exit) => {
@@ -116,7 +129,7 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  private onFinished(exit: Exit.Exit<RoundResult>, ui: BattleUi): void {
+  private onFinished(exit: Exit.Exit<MatchResult>, ui: BattleUi): void {
     this.finished = true;
     if (Exit.isFailure(exit) && !Exit.isInterrupted(exit)) {
       console.error(Cause.pretty(exit.cause));

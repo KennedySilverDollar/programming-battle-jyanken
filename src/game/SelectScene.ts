@@ -60,6 +60,11 @@ export class SelectScene extends Phaser.Scene {
       update(confirm(focusIndex(state, index, roster), roster));
     };
 
+    const openAchievements = (): void => {
+      if (state._tag === "Done") return;
+      fadeOutThen(this, () => this.scene.start("achievements"));
+    };
+
     const ui = new SelectUi(this, roster, {
       onFocus: (i) => {
         update(focusIndex(state, i, roster));
@@ -71,6 +76,7 @@ export class SelectScene extends Phaser.Scene {
         update(back(state, roster));
       },
       onRandom: pickRandom,
+      onAchievements: openAchievements,
     });
     ui.render(state);
 
@@ -100,6 +106,7 @@ export class SelectScene extends Phaser.Scene {
         },
       ],
       ["keydown-R", pickRandom],
+      ["keydown-Q", openAchievements],
     ]);
   }
 }

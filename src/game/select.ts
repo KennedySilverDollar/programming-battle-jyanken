@@ -1,8 +1,8 @@
 import * as Phaser from "phaser";
-import type { CharacterDef, CharacterRoster } from "../core/characters";
+import type { CharacterRoster, CharacterSpec } from "../core/characters";
 import { MOVE_LABEL, MOVES } from "../core/move";
 import { createAvatar, type FighterAvatar } from "./avatar";
-import { addGlow, type Glow, burst, createBackdrop, flash, popIn, punch, reducedMotion } from "./fx";
+import { addGlow, burst, createBackdrop, flash, type Glow, popIn, punch, reducedMotion } from "./fx";
 import type { Matchup, SelectState } from "./selectState";
 import { createButton, GAME_HEIGHT, GAME_WIDTH, textStyle, wrapByChars } from "./widgets";
 
@@ -11,6 +11,7 @@ export interface SelectHandlers {
   readonly onPick: (index: number) => void;
   readonly onBack: () => void;
   readonly onRandom: () => void;
+  readonly onAchievements: () => void;
 }
 
 interface CharacterCard {
@@ -22,22 +23,27 @@ interface CharacterCard {
   focused: boolean | null;
 }
 
-const CARD = { width: 260, height: 430, y: 335 } satisfies Record<string, number>;
+const CARD = { width: 156, height: 250, y: 245 } satisfies Record<string, number>;
 const STEP_COLOR = { PickPlayer: 0xffd866, PickCpu: 0xff6b6b } satisfies Record<string, number>;
 
 /** VS スプラッシュの長さ（ms）。これが終わってから戦闘 Scene へ移る。 */
 export const VERSUS_MS = 1100;
 
-const statsText = (c: CharacterDef): string =>
-  `HP ${String(c.maxHp)}\n${MOVES.map((m) => `${MOVE_LABEL[m]}${String(c.cards[m])}`).join("  ")}`;
+const cardsText = (c: CharacterSpec): string => MOVES.map((m) => `${MOVE_LABEL[m]}${String(c.cards[m])}`).join(" ");
 
-/** キャラクター選択画面の描画。状態は持たず、SelectState をそのまま描く。 */
+/**
+ * キャラクター選択画面の描画。状態は持たず、SelectState をそのまま描く。
+ * 表示するのは公開情報（HP・手札・スキル）だけ。隠れデメリットはここに一切出さない。
+ */
 export class SelectUi {
   private readonly cards: readonly CharacterCard[];
   private readonly stepText: Phaser.GameObjects.Text;
+  private readonly detailTitle: Phaser.GameObjects.Text;
+  private readonly detailBody: Phaser.GameObjects.Text;
   private readonly summary: Phaser.GameObjects.Text;
   private readonly backButton: Phaser.GameObjects.Container;
   private lastStep: SelectState["_tag"] | null = null;
+  private lastDetail = -1;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -56,25 +62,32 @@ export class SelectUi {
       .setStroke("#0b0d12", 6);
     this.stepText = scene.add.text(GAME_WIDTH / 2, 88, "", textStyle(24)).setOrigin(0.5);
 
-    const spacing = Math.min(290, (GAME_WIDTH - 100) / roster.length);
+    const spacing = Math.min(172, (GAME_WIDTH - 60) / roster.length);
     const left = GAME_WIDTH / 2 - (spacing * (roster.length - 1)) / 2;
     this.cards = roster.map((c, i) => this.makeCard(c, i, left + spacing * i, handlers));
 
-    this.summary = scene.add.text(GAME_WIDTH / 2, 585, "", textStyle(26)).setOrigin(0.5);
-    this.backButton = createButton(scene, GAME_WIDTH / 2 - 130, 645, "戻る (K)", handlers.onBack);
-    const randomButton = createButton(scene, GAME_WIDTH / 2 + 130, 645, "おまかせ (R)", handlers.onRandom);
+    // 詳細パネル（カーソルの当たっているキャラ）
+    scene.add.rectangle(GAME_WIDTH / 2, 462, GAME_WIDTH - 120, 136, 0x11141c, 0.88).setStrokeStyle(2, 0x3b4252);
+    this.detailTitle = scene.add.text(100, 404, "", { ...textStyle(22, "#ffd866"), fontStyle: "bold" });
+    this.detailBody = scene.add.text(100, 438, "", { ...textStyle(18, "#c8d0e0"), lineSpacing: 4 });
+
+    this.summary = scene.add.text(GAME_WIDTH / 2, 565, "", textStyle(26)).setOrigin(0.5);
+    this.backButton = createButton(scene, GAME_WIDTH / 2 - 260, 628, "戻る (K)", handlers.onBack);
+    const randomButton = createButton(scene, GAME_WIDTH / 2, 628, "おまかせ (R)", handlers.onRandom);
+    const achievements = createButton(scene, GAME_WIDTH / 2 + 260, 628, "🏆 実績 (Q)", handlers.onAchievements);
     popIn(scene, randomButton, 400, 0.7);
+    popIn(scene, achievements, 480, 0.7);
     scene.add
       .text(
         GAME_WIDTH / 2,
-        700,
-        "クリックで決定    ／    A / D : 選ぶ    J : 決定    K : 戻る    R : おまかせ",
+        690,
+        "クリックで決定    ／    A / D : 選ぶ    J : 決定    K : 戻る    R : おまかせ    Q : 実績",
         textStyle(18, "#9aa4b8"),
       )
       .setOrigin(0.5);
   }
 
-  private makeCard(c: CharacterDef, i: number, x: number, handlers: SelectHandlers): CharacterCard {
+  private makeCard(c: CharacterSpec, i: number, x: number, handlers: SelectHandlers): CharacterCard {
     const { scene } = this;
     const frame = scene.add
       .rectangle(0, 0, CARD.width, CARD.height, 0x1b1f2a, 0.92)
@@ -88,19 +101,22 @@ export class SelectUi {
     });
     // カード上部にキャラ色の帯
     const band = scene.add.rectangle(0, -CARD.height / 2 + 3, CARD.width - 4, 6, c.placeholder.color);
-    const avatar = createAvatar(scene, c, 0, -105);
-    avatar.root.setScale(0.7);
-    const stats = scene.add.text(0, 0, statsText(c), { ...textStyle(20), align: "center" }).setOrigin(0.5, 0);
-    const skill = scene.add.text(0, 70, `「${c.skill.name}」`, textStyle(20, "#ffd866")).setOrigin(0.5, 0);
-    const desc = scene.add
-      .text(0, 103, wrapByChars(c.skill.description, 13), { ...textStyle(16, "#c8d0e0"), align: "center" })
+    const avatar = createAvatar(scene, c, 0, -52);
+    avatar.root.setScale(0.5);
+    const stats = scene.add
+      .text(0, 30, `HP ${String(c.maxHp)}\n${cardsText(c)}`, { ...textStyle(17), align: "center" })
       .setOrigin(0.5, 0);
-    const badge = scene.add.text(0, -201, "", { ...textStyle(18, "#ffd866"), fontStyle: "bold" }).setOrigin(0.5, 0);
-    const root = scene.add.container(x, CARD.y, [frame, band, avatar.root, stats, skill, desc, badge]);
+    const skill = scene.add
+      .text(0, 78, wrapByChars(c.skill.displayName, 8), { ...textStyle(15, "#ffd866"), align: "center" })
+      .setOrigin(0.5, 0);
+    const badge = scene.add
+      .text(0, -CARD.height / 2 - 22, "", { ...textStyle(16, "#ffd866"), fontStyle: "bold" })
+      .setOrigin(0.5, 0);
+    const root = scene.add.container(x, CARD.y, [frame, band, avatar.root, stats, skill, badge]);
 
     // 左から順に浮かび上がる
     root.setAlpha(0).setY(CARD.y + 40);
-    scene.tweens.add({ targets: root, y: CARD.y, alpha: 1, duration: 420, delay: 90 * i, ease: "Cubic.easeOut" });
+    scene.tweens.add({ targets: root, y: CARD.y, alpha: 1, duration: 420, delay: 70 * i, ease: "Cubic.easeOut" });
     return { root, frame, badge, avatar, glow: addGlow(scene, root, CARD.width, CARD.height, 0xffd866), focused: null };
   }
 
@@ -109,15 +125,24 @@ export class SelectUi {
     card.frame.setFillStyle(focused ? 0x262c3a : 0x1b1f2a, 0.92);
     card.glow.setColor(color);
     if (card.focused === focused) return;
-    card.glow.set(focused);
     card.focused = focused;
-    this.scene.tweens.add({
-      targets: card.root,
-      scale: focused ? 1.04 : 1,
-      duration: 150,
-      ease: "Quad.easeOut",
-    });
+    card.glow.set(focused);
+    this.scene.tweens.add({ targets: card.root, scale: focused ? 1.05 : 1, duration: 150, ease: "Quad.easeOut" });
     if (focused) card.avatar.startIdle();
+  }
+
+  private renderDetail(index: number): void {
+    if (index === this.lastDetail) return;
+    this.lastDetail = index;
+    const c = this.roster[index];
+    if (c === undefined) return;
+    const bare = `素手 1/${String(c.bareHandDivisor)}`;
+    this.detailTitle.setText(
+      `${c.placeholder.emoji} ${c.name}  HP ${String(c.maxHp)}  ${cardsText(c)}  ${bare}  —  「${c.skill.displayName}」`,
+    );
+    this.detailBody.setText(`${c.skill.concept}\n${wrapByChars(c.skill.description, 58)}`);
+    this.detailBody.setAlpha(0);
+    this.scene.tweens.add({ targets: this.detailBody, alpha: 1, duration: 160 });
   }
 
   render(state: SelectState): void {
@@ -143,6 +168,7 @@ export class SelectUi {
       picking ? `あなた: ${focusName}    VS    CPU: ？` : `あなた: ${state.player.name}    VS    CPU: ${focusName}`,
     );
     this.backButton.setVisible(!picking);
+    this.renderDetail(state.cursor);
     this.cards.forEach((card, i) => {
       this.setFocused(card, i === state.cursor, color);
       const isPlayer = this.roster[i]?.id === playerId;
@@ -159,7 +185,7 @@ export class SelectUi {
     const dim = scene.add.rectangle(GAME_WIDTH / 2, cy, GAME_WIDTH, GAME_HEIGHT, 0x05070b, 0).setDepth(70);
     scene.tweens.add({ targets: dim, fillAlpha: 0.85, duration: 200 });
 
-    const side = (c: CharacterDef, dir: 1 | -1, label: string): void => {
+    const side = (c: CharacterSpec, dir: 1 | -1, label: string): void => {
       const x = GAME_WIDTH / 2 - dir * 300;
       const stripe = scene.add.rectangle(x, cy, 520, 200, c.placeholder.color, 0.9).setDepth(71).setAngle(-8);
       const name = scene.add
