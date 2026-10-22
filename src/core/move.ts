@@ -29,6 +29,16 @@ export const MOVE_LABEL: Readonly<Record<Move, string>> = { Slash: "斬", Thrust
 /** 正式名。 */
 export const MOVE_NAME: Readonly<Record<Move, string>> = { Slash: "斬撃", Thrust: "刺突", Bash: "打撃" };
 
+/**
+ * じゃんけんでの対応。斬撃 > 刺突 > 打撃 > 斬撃 は グー > チョキ > パー > グー と同じ関係。
+ * （判定は OUTCOME が正。テストで両者が一致することを検証している）
+ */
+export const MOVE_HAND: Readonly<Record<Move, { readonly name: string; readonly emoji: string }>> = {
+  Slash: { name: "グー", emoji: "✊" },
+  Thrust: { name: "チョキ", emoji: "✌️" },
+  Bash: { name: "パー", emoji: "✋" },
+};
+
 /** move に勝つ手。 */
 export const counterOf = (move: Move): Move => {
   switch (move) {

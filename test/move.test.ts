@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { counterOf, judge, MOVES, type Outcome } from "../src/core/move";
+import { counterOf, judge, MOVE_HAND, MOVES, type Outcome } from "../src/core/move";
 
 describe("判定テーブル", () => {
   it("三すくみ：斬撃 > 刺突 > 打撃 > 斬撃", () => {
@@ -18,5 +18,15 @@ describe("判定テーブル", () => {
 
   it("counterOf はその手に勝つ手", () => {
     for (const m of MOVES) expect(judge(counterOf(m), m)).toBe("Win");
+  });
+
+  it("グー/チョキ/パーの表記は判定テーブルと同じ関係（グー > チョキ > パー > グー）", () => {
+    const rps: Record<string, string> = { グー: "チョキ", チョキ: "パー", パー: "グー" };
+    for (const a of MOVES) {
+      for (const b of MOVES) {
+        const beats = rps[MOVE_HAND[a].name] === MOVE_HAND[b].name;
+        expect(judge(a, b) === "Win").toBe(beats);
+      }
+    }
   });
 });

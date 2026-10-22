@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect";
 import * as Phaser from "phaser";
 import { mulberry32, randomServiceFrom } from "../core/random";
+import { preloadLogos } from "./avatar";
 import { fadeIn, fadeOutThen } from "./fx";
 import { SelectUi } from "./select";
 import { back, confirm, focusIndex, initialSelect, moveCursor, type SelectState } from "./selectState";
@@ -11,6 +12,11 @@ import { bindKeys } from "./widgets";
 export class SelectScene extends Phaser.Scene {
   constructor(private readonly session: GameSession) {
     super("select");
+  }
+
+  preload(): void {
+    // 公式ロゴ（public/logos）。読み込めなくても絵文字で代用して続行する
+    preloadLogos(this, this.session.roster);
   }
 
   create(): void {
