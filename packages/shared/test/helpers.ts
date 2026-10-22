@@ -1,15 +1,15 @@
 import { Effect, Layer, Ref } from "effect";
-import { AchievementStore, memoryAchievementStore } from "../src/core/achievements";
-import { randomCpuLayer } from "../src/core/ai";
-import { type MatchResult, playMatch } from "../src/core/battle";
-import type { CharacterSpec } from "../src/core/characters";
-import type { BattleEvent } from "../src/core/events";
-import { findCharacter, type GameData, loadGameData } from "../src/core/gameData";
-import type { Move } from "../src/core/move";
-import { RandomService, seededRandomLayer } from "../src/core/random";
-import { BattleEvents, CpuStrategy, type MoveChooser, PlayerInput } from "../src/core/services";
-import type { Side } from "../src/core/side";
-import type { ChoiceView, ExtraChoiceView } from "../src/core/view";
+import { AchievementStore, memoryAchievementStore } from "../src/achievements";
+import { randomCpuLayer } from "../src/ai";
+import { type MatchResult, playMatch } from "../src/battle";
+import type { CharacterSpec } from "../src/characters";
+import type { BattleEvent } from "../src/events";
+import { findCharacter, type GameData, loadGameData } from "../src/gameData";
+import type { Move } from "../src/move";
+import { RandomService, seededRandomLayer } from "../src/random";
+import { BattleEvents, CpuStrategy, type MoveChooser, PlayerInput } from "../src/services";
+import type { Side } from "../src/side";
+import type { ChoiceView, ExtraChoiceView } from "../src/view";
 
 export const gameData: GameData = Effect.runSync(loadGameData());
 

@@ -1,6 +1,6 @@
 import { Effect, Option } from "effect";
 import * as Phaser from "phaser";
-import { mulberry32, randomServiceFrom } from "../core/random";
+import { mulberry32, randomServiceFrom } from "@pbj/shared/random";
 import { preloadLogos } from "./avatar";
 import { fadeIn, fadeOutThen } from "./fx";
 import { SelectUi } from "./select";

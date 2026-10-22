@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import type { CharacterSpec } from "../core/characters";
+import type { CharacterSpec } from "@pbj/shared/characters";
 import { addGlow, desaturate, reducedMotion } from "./fx";
 
 /** 画面上の向き。+1 は右（相手が右にいる）、-1 は左。 */

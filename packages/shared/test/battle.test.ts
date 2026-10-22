@@ -1,7 +1,7 @@
 import { Option } from "effect";
 import { describe, expect, it } from "vitest";
-import { handTotal } from "../src/core/hand";
-import { constantRandomLayer, seededRandomLayer } from "../src/core/random";
+import { handTotal } from "../src/hand";
+import { constantRandomLayer, seededRandomLayer } from "../src/random";
 import { firstRound, gameData, ofTag, repeat, runMatch } from "./helpers";
 
 /** 確率判定がすべて不成立（スキルの確率発動・隠れデメリットが起きない）。 */
@@ -358,7 +358,7 @@ describe("全組み合わせ × 多数シードの性質", () => {
   });
 });
 
-const splitRounds = (events: readonly import("../src/core/events").BattleEvent[]) => {
+const splitRounds = (events: readonly import("../src/events").BattleEvent[]) => {
   const rounds: (typeof events)[number][][] = [];
   for (const e of events) {
     if (e._tag === "RoundStarted") rounds.push([]);

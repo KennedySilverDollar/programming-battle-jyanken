@@ -1,11 +1,11 @@
 import { Option } from "effect";
 import * as Phaser from "phaser";
-import type { BattleEvent, EffectiveMove, RevealedPlay, RoundResult, TurnNote } from "../core/events";
-import type { Hand } from "../core/hand";
-import { MOVE_HAND, MOVE_LABEL, MOVE_NAME, MOVES, type Move, type Outcome } from "../core/move";
-import { opponentOf, SIDES, type Side } from "../core/side";
-import type { TraitId } from "../core/traits";
-import type { BattleView, ChoiceView, ExtraChoiceView, OpponentView, OwnView, ThunkView } from "../core/view";
+import type { BattleEvent, EffectiveMove, RevealedPlay, RoundResult, TurnNote } from "@pbj/shared/events";
+import type { Hand } from "@pbj/shared/hand";
+import { MOVE_HAND, MOVE_LABEL, MOVE_NAME, MOVES, type Move, type Outcome } from "@pbj/shared/move";
+import { opponentOf, SIDES, type Side } from "@pbj/shared/side";
+import type { TraitId } from "@pbj/shared/traits";
+import type { BattleView, ChoiceView, ExtraChoiceView, OpponentView, OwnView, ThunkView } from "@pbj/shared/view";
 import { createAvatar, type FighterAvatar } from "./avatar";
 import { addGlow, burst, confetti, createBackdrop, flash, floatText, type Glow, popIn, punch, shake } from "./fx";
 import { createButton, GAME_HEIGHT, GAME_WIDTH, textStyle } from "./widgets";

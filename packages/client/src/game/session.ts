@@ -1,6 +1,6 @@
 import { type Layer, Option } from "effect";
-import type { AchievementStore } from "../core/achievements";
-import type { GameData } from "../core/gameData";
+import type { AchievementStore } from "@pbj/shared/achievements";
+import type { GameData } from "@pbj/shared/gameData";
 import type { Matchup } from "./selectState";
 
 /**

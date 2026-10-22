@@ -3,7 +3,7 @@
   "name": "programming-battle-jyanken",
   "compatibility_date": "2026-10-19",
   "assets": {
-    "directory": "./dist",
+    "directory": "./packages/client/dist",
     "not_found_handling": "single-page-application"
   }
 }

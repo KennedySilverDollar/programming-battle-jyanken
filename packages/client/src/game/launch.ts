@@ -1,6 +1,6 @@
 import { Clock, Effect, Option, Schema } from "effect";
-import { InvalidGameData, type StartupError } from "../core/errors";
-import { decodeOrFail, findCharacter, type GameData, loadGameData } from "../core/gameData";
+import { InvalidGameData, type StartupError } from "@pbj/shared/errors";
+import { decodeOrFail, findCharacter, type GameData, loadGameData } from "@pbj/shared/gameData";
 import type { Quality } from "./fx";
 import type { Matchup } from "./selectState";
 

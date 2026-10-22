@@ -1,6 +1,6 @@
 import { Cause, Effect, Exit } from "effect";
 import * as Phaser from "phaser";
-import { type Achievement, listAchievements } from "../core/achievements";
+import { type Achievement, listAchievements } from "@pbj/shared/achievements";
 import { createBackdrop, fadeIn, fadeOutThen, popIn } from "./fx";
 import type { GameSession } from "./session";
 import { bindKeys, createButton, GAME_WIDTH, textStyle, wrapByChars } from "./widgets";

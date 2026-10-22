@@ -10,7 +10,9 @@ import {
   moveCursor,
   type SelectState,
 } from "../src/game/selectState";
-import { gameData } from "./helpers";
+import { loadGameData } from "@pbj/shared/gameData";
+
+const gameData = Effect.runSync(loadGameData());
 
 const roster = gameData.roster;
 const ids = (s: SelectState) => (s._tag === "Done" ? [s.matchup.Player.id, s.matchup.Cpu.id] : []);

@@ -1,11 +1,11 @@
 import { Cause, Effect, Exit, Fiber, Layer, Option } from "effect";
 import * as Phaser from "phaser";
-import { randomCpuLayer } from "../core/ai";
-import { type MatchResult, playMatch } from "../core/battle";
-import { constantRandomLayer } from "../core/random";
-import { BattleEvents, PlayerInput } from "../core/services";
-import { initialGameState } from "../core/state";
-import { battleView } from "../core/view";
+import { randomCpuLayer } from "@pbj/shared/ai";
+import { type MatchResult, playMatch } from "@pbj/shared/battle";
+import { constantRandomLayer } from "@pbj/shared/random";
+import { BattleEvents, PlayerInput } from "@pbj/shared/services";
+import { initialGameState } from "@pbj/shared/state";
+import { battleView } from "@pbj/shared/view";
 import { fadeIn, fadeOutThen } from "./fx";
 import { phaserRandomLayer } from "./phaserRandom";
 import type { GameSession } from "./session";

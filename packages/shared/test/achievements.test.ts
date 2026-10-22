@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { AchievementStore, listAchievements, memoryAchievementStore } from "../src/core/achievements";
+import { AchievementStore, listAchievements, memoryAchievementStore } from "../src/achievements";
 import { gameData } from "./helpers";
 
 describe("実績", () => {

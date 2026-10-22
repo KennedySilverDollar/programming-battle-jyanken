@@ -1,6 +1,6 @@
 import { Array as Arr, Option } from "effect";
-import type { CharacterSpec, CharacterRoster } from "../core/characters";
-import type { Side } from "../core/side";
+import type { CharacterSpec, CharacterRoster } from "@pbj/shared/characters";
+import type { Side } from "@pbj/shared/side";
 
 /** 対戦カード（自分と CPU のキャラ）。 */
 export type Matchup = Readonly<Record<Side, CharacterSpec>>;

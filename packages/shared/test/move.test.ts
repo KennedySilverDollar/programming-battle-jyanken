@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { counterOf, judge, MOVE_HAND, MOVES, type Outcome } from "../src/core/move";
+import { counterOf, judge, MOVE_HAND, MOVES, type Outcome } from "../src/move";
 
 describe("判定テーブル", () => {
   it("三すくみ：斬撃 > 刺突 > 打撃 > 斬撃", () => {

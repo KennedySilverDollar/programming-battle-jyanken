@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
-import type { CharacterRoster, CharacterSpec } from "../core/characters";
-import { MOVE_LABEL, MOVES } from "../core/move";
+import type { CharacterRoster, CharacterSpec } from "@pbj/shared/characters";
+import { MOVE_LABEL, MOVES } from "@pbj/shared/move";
 import { createAvatar, type FighterAvatar } from "./avatar";
 import { addGlow, burst, createBackdrop, flash, type Glow, popIn, punch, reducedMotion } from "./fx";
 import type { Matchup, SelectState } from "./selectState";

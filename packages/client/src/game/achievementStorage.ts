@@ -1,6 +1,6 @@
 import { Effect, Layer, Schema } from "effect";
-import { AchievementStore } from "../core/achievements";
-import { AchievementStorageError } from "../core/errors";
+import { AchievementStore } from "@pbj/shared/achievements";
+import { AchievementStorageError } from "@pbj/shared/errors";
 
 const KEY = "programming-battle-jyanken.achievements.v1";
 

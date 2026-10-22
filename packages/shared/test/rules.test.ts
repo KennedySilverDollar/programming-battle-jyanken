@@ -1,9 +1,9 @@
 import { Option } from "effect";
 import { describe, expect, it } from "vitest";
-import { damageFor, decideExchange } from "../src/core/battle";
-import type { EffectiveMove } from "../src/core/events";
-import type { Move } from "../src/core/move";
-import { initialFighter } from "../src/core/state";
+import { damageFor, decideExchange } from "../src/battle";
+import type { EffectiveMove } from "../src/events";
+import type { Move } from "../src/move";
+import { initialFighter } from "../src/state";
 import { character, gameData } from "./helpers";
 
 const { balance } = gameData;

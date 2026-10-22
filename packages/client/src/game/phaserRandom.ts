@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 import * as Phaser from "phaser";
-import { randomServiceFrom, RandomService } from "../core/random";
+import { randomServiceFrom, RandomService } from "@pbj/shared/random";
 
 /**
  * Phaser.Math.RND を包んだ本番用 RandomService。

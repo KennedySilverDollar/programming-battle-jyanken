@@ -1,9 +1,9 @@
 import { Effect, Either } from "effect";
 import { describe, expect, it } from "vitest";
-import { RAW_ACHIEVEMENTS } from "../src/core/achievements";
-import { RAW_BALANCE } from "../src/core/balance";
-import { rawCharacters } from "../src/core/characters";
-import { findCharacter, loadGameData } from "../src/core/gameData";
+import { RAW_ACHIEVEMENTS } from "../src/achievements";
+import { RAW_BALANCE } from "../src/balance";
+import { rawCharacters } from "../src/characters";
+import { findCharacter, loadGameData } from "../src/gameData";
 import { gameData } from "./helpers";
 
 const tagOf = <A, E extends { readonly _tag: string }>(r: Either.Either<A, E>): string =>
