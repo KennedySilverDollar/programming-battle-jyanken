@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect";
 import * as Phaser from "phaser";
 import { mulberry32, randomServiceFrom } from "../core/random";
+import { fadeIn, fadeOutThen } from "./fx";
 import { SelectUi } from "./select";
 import { back, confirm, focusIndex, initialSelect, moveCursor, type SelectState } from "./selectState";
 import type { GameSession } from "./session";
@@ -18,6 +19,7 @@ export class SelectScene extends Phaser.Scene {
       return;
     }
     const roster = this.session.roster;
+    fadeIn(this);
 
     // 前回の自分のキャラにカーソルを合わせて始める
     const lastIndex = Option.match(this.session.currentMatchup(), {
@@ -31,16 +33,23 @@ export class SelectScene extends Phaser.Scene {
     let state: SelectState = initialSelect(lastIndex);
 
     const update = (next: SelectState): void => {
+      // 決定後（VS 演出中）の入力で演出・遷移を二重に起こさない
+      if (state._tag === "Done") return;
       state = next;
       switch (state._tag) {
         case "PickPlayer":
         case "PickCpu":
           ui.render(state);
           return;
-        case "Done":
-          this.session.setMatchup(state.matchup);
-          this.scene.start("battle");
+        case "Done": {
+          const { matchup } = state;
+          this.session.setMatchup(matchup);
+          // VS スプラッシュ → フェードアウト → 戦闘へ（Done 以降の入力は状態遷移側で無視される）
+          ui.playVersus(matchup, () => {
+            fadeOutThen(this, () => this.scene.start("battle"));
+          });
           return;
+        }
       }
     };
 

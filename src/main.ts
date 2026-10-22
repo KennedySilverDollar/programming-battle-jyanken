@@ -1,6 +1,7 @@
 import { Cause, Effect, Exit } from "effect";
 import * as Phaser from "phaser";
 import { BattleScene } from "./game/BattleScene";
+import { setQuality } from "./game/fx";
 import { loadLaunchConfig } from "./game/launch";
 import { SelectScene } from "./game/SelectScene";
 import { GameSession } from "./game/session";
@@ -22,7 +23,7 @@ void Effect.runPromiseExit(loadLaunchConfig(window.location.search)).then((exit)
     },
     onSuccess: (config) => {
       const session = new GameSession(config.data, config.seed, config.preset);
-      new Phaser.Game({
+      const game = new Phaser.Game({
         type: Phaser.AUTO,
         parent: "game",
         backgroundColor: "#11141c",
@@ -32,6 +33,9 @@ void Effect.runPromiseExit(loadLaunchConfig(window.location.search)).then((exit)
         // 先頭の Scene（キャラ選択）から始まる
         scene: [new SelectScene(session), new BattleScene(session)],
       });
+      setQuality(game.registry, config.quality);
+      // 開発時のみ：E2E テストや性能計測からゲームの状態を参照できるようにする
+      if (import.meta.env.DEV) Reflect.set(window, "__game", game);
     },
   });
 });

@@ -1,9 +1,10 @@
 import * as Phaser from "phaser";
 import type { CharacterDef, CharacterRoster } from "../core/characters";
 import { MOVE_LABEL, MOVES } from "../core/move";
-import { createAvatar } from "./avatar";
-import type { SelectState } from "./selectState";
-import { createButton, GAME_WIDTH, textStyle, wrapByChars } from "./widgets";
+import { createAvatar, type FighterAvatar } from "./avatar";
+import { addGlow, type Glow, burst, createBackdrop, flash, popIn, punch, reducedMotion } from "./fx";
+import type { Matchup, SelectState } from "./selectState";
+import { createButton, GAME_HEIGHT, GAME_WIDTH, textStyle, wrapByChars } from "./widgets";
 
 export interface SelectHandlers {
   readonly onFocus: (index: number) => void;
@@ -13,12 +14,19 @@ export interface SelectHandlers {
 }
 
 interface CharacterCard {
+  readonly root: Phaser.GameObjects.Container;
   readonly frame: Phaser.GameObjects.Rectangle;
   readonly badge: Phaser.GameObjects.Text;
+  readonly avatar: FighterAvatar;
+  readonly glow: Glow;
+  focused: boolean | null;
 }
 
 const CARD = { width: 260, height: 430, y: 335 } satisfies Record<string, number>;
 const STEP_COLOR = { PickPlayer: 0xffd866, PickCpu: 0xff6b6b } satisfies Record<string, number>;
+
+/** VS スプラッシュの長さ（ms）。これが終わってから戦闘 Scene へ移る。 */
+export const VERSUS_MS = 1100;
 
 const statsText = (c: CharacterDef): string =>
   `HP ${String(c.maxHp)}\n${MOVES.map((m) => `${MOVE_LABEL[m]}${String(c.cards[m])}`).join("  ")}`;
@@ -29,43 +37,33 @@ export class SelectUi {
   private readonly stepText: Phaser.GameObjects.Text;
   private readonly summary: Phaser.GameObjects.Text;
   private readonly backButton: Phaser.GameObjects.Container;
+  private lastStep: SelectState["_tag"] | null = null;
 
   constructor(
-    scene: Phaser.Scene,
+    private readonly scene: Phaser.Scene,
     private readonly roster: CharacterRoster,
     handlers: SelectHandlers,
   ) {
-    scene.add.text(GAME_WIDTH / 2, 40, "キャラクター選択", textStyle(36)).setOrigin(0.5);
+    const accents: [number, number] = [
+      roster[0].placeholder.color,
+      roster[roster.length - 1]?.placeholder.color ?? roster[0].placeholder.color,
+    ];
+    createBackdrop(scene, accents);
+
+    scene.add
+      .text(GAME_WIDTH / 2, 40, "キャラクター選択", { ...textStyle(36), fontStyle: "bold" })
+      .setOrigin(0.5)
+      .setStroke("#0b0d12", 6);
     this.stepText = scene.add.text(GAME_WIDTH / 2, 88, "", textStyle(24)).setOrigin(0.5);
 
     const spacing = Math.min(290, (GAME_WIDTH - 100) / roster.length);
     const left = GAME_WIDTH / 2 - (spacing * (roster.length - 1)) / 2;
-    this.cards = roster.map((c, i) => {
-      const x = left + spacing * i;
-      const frame = scene.add
-        .rectangle(x, CARD.y, CARD.width, CARD.height, 0x1b1f2a)
-        .setStrokeStyle(2, 0x596275)
-        .setInteractive({ useHandCursor: true });
-      frame.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => {
-        handlers.onFocus(i);
-      });
-      frame.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
-        handlers.onPick(i);
-      });
-      const top = CARD.y - CARD.height / 2;
-      createAvatar(scene, c, x, top + 110).root.setScale(0.7);
-      scene.add.text(x, top + 215, statsText(c), { ...textStyle(20), align: "center" }).setOrigin(0.5, 0);
-      scene.add.text(x, top + 285, `「${c.skill.name}」`, textStyle(20, "#ffd866")).setOrigin(0.5, 0);
-      scene.add
-        .text(x, top + 318, wrapByChars(c.skill.description, 13), { ...textStyle(16, "#c8d0e0"), align: "center" })
-        .setOrigin(0.5, 0);
-      const badge = scene.add.text(x, top + 14, "", textStyle(18, "#ffd866")).setOrigin(0.5, 0);
-      return { frame, badge };
-    });
+    this.cards = roster.map((c, i) => this.makeCard(c, i, left + spacing * i, handlers));
 
     this.summary = scene.add.text(GAME_WIDTH / 2, 585, "", textStyle(26)).setOrigin(0.5);
     this.backButton = createButton(scene, GAME_WIDTH / 2 - 130, 645, "戻る (K)", handlers.onBack);
-    createButton(scene, GAME_WIDTH / 2 + 130, 645, "おまかせ (R)", handlers.onRandom);
+    const randomButton = createButton(scene, GAME_WIDTH / 2 + 130, 645, "おまかせ (R)", handlers.onRandom);
+    popIn(scene, randomButton, 400, 0.7);
     scene.add
       .text(
         GAME_WIDTH / 2,
@@ -74,6 +72,52 @@ export class SelectUi {
         textStyle(18, "#9aa4b8"),
       )
       .setOrigin(0.5);
+  }
+
+  private makeCard(c: CharacterDef, i: number, x: number, handlers: SelectHandlers): CharacterCard {
+    const { scene } = this;
+    const frame = scene.add
+      .rectangle(0, 0, CARD.width, CARD.height, 0x1b1f2a, 0.92)
+      .setStrokeStyle(2, 0x596275)
+      .setInteractive({ useHandCursor: true });
+    frame.on(Phaser.Input.Events.GAMEOBJECT_POINTER_OVER, () => {
+      handlers.onFocus(i);
+    });
+    frame.on(Phaser.Input.Events.GAMEOBJECT_POINTER_DOWN, () => {
+      handlers.onPick(i);
+    });
+    // カード上部にキャラ色の帯
+    const band = scene.add.rectangle(0, -CARD.height / 2 + 3, CARD.width - 4, 6, c.placeholder.color);
+    const avatar = createAvatar(scene, c, 0, -105);
+    avatar.root.setScale(0.7);
+    const stats = scene.add.text(0, 0, statsText(c), { ...textStyle(20), align: "center" }).setOrigin(0.5, 0);
+    const skill = scene.add.text(0, 70, `「${c.skill.name}」`, textStyle(20, "#ffd866")).setOrigin(0.5, 0);
+    const desc = scene.add
+      .text(0, 103, wrapByChars(c.skill.description, 13), { ...textStyle(16, "#c8d0e0"), align: "center" })
+      .setOrigin(0.5, 0);
+    const badge = scene.add.text(0, -201, "", { ...textStyle(18, "#ffd866"), fontStyle: "bold" }).setOrigin(0.5, 0);
+    const root = scene.add.container(x, CARD.y, [frame, band, avatar.root, stats, skill, desc, badge]);
+
+    // 左から順に浮かび上がる
+    root.setAlpha(0).setY(CARD.y + 40);
+    scene.tweens.add({ targets: root, y: CARD.y, alpha: 1, duration: 420, delay: 90 * i, ease: "Cubic.easeOut" });
+    return { root, frame, badge, avatar, glow: addGlow(scene, root, CARD.width, CARD.height, 0xffd866), focused: null };
+  }
+
+  private setFocused(card: CharacterCard, focused: boolean, color: number): void {
+    card.frame.setStrokeStyle(focused ? 4 : 2, focused ? color : 0x596275);
+    card.frame.setFillStyle(focused ? 0x262c3a : 0x1b1f2a, 0.92);
+    card.glow.setColor(color);
+    if (card.focused === focused) return;
+    card.glow.set(focused);
+    card.focused = focused;
+    this.scene.tweens.add({
+      targets: card.root,
+      scale: focused ? 1.04 : 1,
+      duration: 150,
+      ease: "Quad.easeOut",
+    });
+    if (focused) card.avatar.startIdle();
   }
 
   render(state: SelectState): void {
@@ -87,16 +131,66 @@ export class SelectUi {
     const picking = state._tag === "PickPlayer";
     const playerId = picking ? undefined : state.player.id;
     const focusName = this.roster[state.cursor]?.name ?? "？";
+    const color = STEP_COLOR[state._tag];
     this.stepText.setText(picking ? "あなたのキャラを選んでください" : "相手（CPU）のキャラを選んでください");
+    this.stepText.setColor(picking ? "#ffffff" : "#ffb3b3");
+    if (this.lastStep !== state._tag) {
+      // 段階が変わったら見出しを弾ませる
+      if (this.lastStep !== null) punch(this.scene, this.stepText, 1.15, 140);
+      this.lastStep = state._tag;
+    }
     this.summary.setText(
       picking ? `あなた: ${focusName}    VS    CPU: ？` : `あなた: ${state.player.name}    VS    CPU: ${focusName}`,
     );
     this.backButton.setVisible(!picking);
     this.cards.forEach((card, i) => {
-      const isFocus = i === state.cursor;
-      card.frame.setStrokeStyle(isFocus ? 5 : 2, isFocus ? STEP_COLOR[state._tag] : 0x596275);
-      card.frame.setFillStyle(isFocus ? 0x262c3a : 0x1b1f2a);
-      card.badge.setText(this.roster[i]?.id === playerId ? "▼ あなた" : "");
+      this.setFocused(card, i === state.cursor, color);
+      const isPlayer = this.roster[i]?.id === playerId;
+      const wasEmpty = card.badge.text === "";
+      card.badge.setText(isPlayer ? "▼ あなた" : "");
+      if (isPlayer && wasEmpty) popIn(this.scene, card.badge, 0, 0.4);
     });
+  }
+
+  /** 決定時の VS スプラッシュ。終わったら onDone。 */
+  playVersus(matchup: Matchup, onDone: () => void): void {
+    const { scene } = this;
+    const cy = GAME_HEIGHT / 2;
+    const dim = scene.add.rectangle(GAME_WIDTH / 2, cy, GAME_WIDTH, GAME_HEIGHT, 0x05070b, 0).setDepth(70);
+    scene.tweens.add({ targets: dim, fillAlpha: 0.85, duration: 200 });
+
+    const side = (c: CharacterDef, dir: 1 | -1, label: string): void => {
+      const x = GAME_WIDTH / 2 - dir * 300;
+      const stripe = scene.add.rectangle(x, cy, 520, 200, c.placeholder.color, 0.9).setDepth(71).setAngle(-8);
+      const name = scene.add
+        .text(x, cy - 10, c.name, { ...textStyle(56), fontStyle: "bold" })
+        .setOrigin(0.5)
+        .setStroke("#000000", 8)
+        .setDepth(72);
+      const tag = scene.add
+        .text(x, cy + 50, label, textStyle(22, "#ffffff"))
+        .setOrigin(0.5)
+        .setDepth(72);
+      for (const o of [stripe, name, tag]) {
+        const targetX = o.x;
+        o.setX(targetX - dir * 700);
+        scene.tweens.add({ targets: o, x: targetX, duration: 320, delay: 80, ease: "Cubic.easeOut" });
+      }
+    };
+    side(matchup.Player, 1, "あなた");
+    side(matchup.Cpu, -1, "CPU");
+
+    const vs = scene.add
+      .text(GAME_WIDTH / 2, cy, "VS", { ...textStyle(96, "#ffd866"), fontStyle: "bold" })
+      .setOrigin(0.5)
+      .setStroke("#000000", 10)
+      .setDepth(73);
+    popIn(scene, vs, 380, 2.4);
+    scene.time.delayedCall(420, () => {
+      flash(scene, 0xffffff, 120);
+      burst(scene, GAME_WIDTH / 2, cy, [matchup.Player.placeholder.color, matchup.Cpu.placeholder.color, 0xffd866], 40);
+      if (!reducedMotion()) scene.cameras.main.shake(180, 0.006);
+    });
+    scene.time.delayedCall(VERSUS_MS, onDone);
   }
 }

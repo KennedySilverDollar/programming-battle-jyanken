@@ -6,6 +6,7 @@ import type { RoundResult } from "../core/events";
 import { BattleEvents, PlayerInput } from "../core/services";
 import { initialGameState } from "../core/state";
 import { battleView } from "../core/view";
+import { fadeIn, fadeOutThen } from "./fx";
 import { phaserRandomLayer } from "./phaserRandom";
 import type { GameSession } from "./session";
 import { BattleUi } from "./ui";
@@ -40,12 +41,18 @@ export class BattleScene extends Phaser.Scene {
     const characters = matchup.value;
     const { data } = this.session;
     const seed = this.session.nextSeed();
+    fadeIn(this);
 
     const ifFinished = (f: () => void) => (): void => {
       if (this.finished) f();
     };
-    const restart = ifFinished(() => this.scene.restart());
-    const toSelect = ifFinished(() => this.scene.start("select"));
+    // 試合終了後のみ。フェードアウトしてから遷移する
+    const restart = ifFinished(() => {
+      fadeOutThen(this, () => this.scene.restart());
+    });
+    const toSelect = ifFinished(() => {
+      fadeOutThen(this, () => this.scene.start("select"));
+    });
     const ui = new BattleUi(this, battleView(initialGameState(characters), "Player"), {
       onRestart: restart,
       onBackToSelect: toSelect,
