@@ -1,6 +1,8 @@
+import { BrowserSocket } from "@effect/platform-browser";
 import { type Layer, Option } from "effect";
 import type { AchievementStore } from "@pbj/shared/achievements";
 import type { GameData } from "@pbj/shared/gameData";
+import { localStorageTokenStore, OnlineConnection, serverUrl } from "../online/connection";
 import type { Matchup } from "./selectState";
 
 /**
@@ -26,6 +28,16 @@ export class GameSession {
     this.autoStart = Option.isSome(preset);
   }
 
+  private resumeChecked = false;
+
+  /** 起動直後に一度だけ：招待リンク（?room=）か、保存済みのセッションがあればロビーへ直行する。 */
+  consumeResumeOnline(): boolean {
+    if (this.resumeChecked) return false;
+    this.resumeChecked = true;
+    const invited = new URLSearchParams(window.location.search).has("room");
+    return invited || Option.isSome(localStorageTokenStore.load());
+  }
+
   consumeAutoStart(): boolean {
     const result = this.autoStart;
     this.autoStart = false;
@@ -42,6 +54,21 @@ export class GameSession {
 
   setMatchup(matchup: Matchup): void {
     this.matchup = Option.some(matchup);
+  }
+
+  private connection: OnlineConnection | null = null;
+  /** オンライン対戦で最後に選んだキャラ。 */
+  onlineCharacter = 0;
+
+  /** オンライン対戦の接続（初回に接続 Fiber を起動し、以後は Scene をまたいで使い回す）。 */
+  online(): OnlineConnection {
+    this.connection ??= new OnlineConnection(
+      serverUrl(),
+      localStorageTokenStore,
+      BrowserSocket.layerWebSocketConstructor,
+    );
+    this.connection.start();
+    return this.connection;
   }
 
   /** 試合ごとに異なる、再現可能なシード。 */

@@ -24,6 +24,11 @@ export class SelectScene extends Phaser.Scene {
       this.scene.start("battle");
       return;
     }
+    // オンライン対戦の招待リンク（?room=）か、前回のセッションが残っていればロビーから再開する
+    if (this.session.consumeResumeOnline()) {
+      this.scene.start("lobby");
+      return;
+    }
     const roster = this.session.roster;
     fadeIn(this);
 
@@ -71,6 +76,11 @@ export class SelectScene extends Phaser.Scene {
       fadeOutThen(this, () => this.scene.start("achievements"));
     };
 
+    const openOnline = (): void => {
+      if (state._tag === "Done") return;
+      fadeOutThen(this, () => this.scene.start("lobby"));
+    };
+
     const ui = new SelectUi(this, roster, {
       onFocus: (i) => {
         update(focusIndex(state, i, roster));
@@ -83,6 +93,7 @@ export class SelectScene extends Phaser.Scene {
       },
       onRandom: pickRandom,
       onAchievements: openAchievements,
+      onOnline: openOnline,
     });
     ui.render(state);
 
@@ -113,6 +124,7 @@ export class SelectScene extends Phaser.Scene {
       ],
       ["keydown-R", pickRandom],
       ["keydown-Q", openAchievements],
+      ["keydown-O", openOnline],
     ]);
   }
 }

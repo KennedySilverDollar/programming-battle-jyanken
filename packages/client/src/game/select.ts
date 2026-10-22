@@ -12,6 +12,7 @@ export interface SelectHandlers {
   readonly onBack: () => void;
   readonly onRandom: () => void;
   readonly onAchievements: () => void;
+  readonly onOnline: () => void;
 }
 
 interface CharacterCard {
@@ -77,6 +78,8 @@ export class SelectUi {
     const achievements = createButton(scene, GAME_WIDTH / 2 + 260, 628, "🏆 実績 (Q)", handlers.onAchievements);
     popIn(scene, randomButton, 400, 0.7);
     popIn(scene, achievements, 480, 0.7);
+    const online = createButton(scene, GAME_WIDTH - 150, 40, "🌐 オンライン (O)", handlers.onOnline, 260);
+    popIn(scene, online, 560, 0.7);
     scene.add
       .text(
         GAME_WIDTH / 2,

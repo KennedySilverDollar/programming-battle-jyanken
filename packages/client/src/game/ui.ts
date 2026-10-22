@@ -107,6 +107,12 @@ interface Banner {
 export interface UiHandlers {
   readonly onRestart: () => void;
   readonly onBackToSelect: () => void;
+  /** 表記の差し替え（オンライン対戦用）。 */
+  readonly labels?: {
+    readonly opponentTag: string;
+    readonly restart: string;
+    readonly back: string;
+  };
 }
 
 interface Selection {
@@ -138,6 +144,8 @@ export class BattleUi {
   private readonly reveal: Record<Side, RevealCard>;
   private readonly extraReveal: Record<Side, RevealCard>;
   private readonly hint: Phaser.GameObjects.Text;
+  /** 接続状態・残り時間など（オンライン対戦用）。 */
+  private readonly status: Phaser.GameObjects.Text;
   /** 試合終了後に手札カードの位置へ出すボタン。 */
   private readonly endButtons: readonly Phaser.GameObjects.Container[];
   private selection: Selection | null = null;
@@ -151,17 +159,23 @@ export class BattleUi {
     handlers: UiHandlers,
   ) {
     const { self, opponent } = view;
+    const labels = handlers.labels ?? { opponentTag: "(CPU)", restart: "リスタート (R)", back: "キャラ選択へ (C)" };
     this.colors = { P1: self.character.placeholder.color, P2: opponent.character.placeholder.color };
     createBackdrop(scene, [this.colors.P1, this.colors.P2]);
 
     this.turnText = scene.add.text(GAME_WIDTH / 2, 40, "", textStyle(24)).setOrigin(0.5);
     this.hp = {
       P1: this.makeHpBar(40, 30, self.character.name, self.character.maxHp),
-      P2: this.makeHpBar(GAME_WIDTH - 40 - 480, 30, `${opponent.character.name} (CPU)`, opponent.character.maxHp),
+      P2: this.makeHpBar(
+        GAME_WIDTH - 40 - 480,
+        30,
+        `${opponent.character.name} ${labels.opponentTag}`,
+        opponent.character.maxHp,
+      ),
     };
     this.badges = {
       P1: this.makeBadges("P1", 40, self.character.name),
-      P2: this.makeBadges("P2", GAME_WIDTH - 40, `${opponent.character.name} (CPU)`),
+      P2: this.makeBadges("P2", GAME_WIDTH - 40, `${opponent.character.name} ${labels.opponentTag}`),
     };
     this.avatars = {
       P1: createAvatar(scene, self.character, AVATAR_X.P1, AVATAR_Y, 1),
@@ -191,11 +205,12 @@ export class BattleUi {
       Bash: this.makeCard("Bash", GAME_WIDTH / 2 + 170),
     };
     this.endButtons = [
-      createButton(scene, GAME_WIDTH / 2 - 140, CARD_Y, "リスタート (R)", handlers.onRestart, 250),
-      createButton(scene, GAME_WIDTH / 2 + 140, CARD_Y, "キャラ選択へ (C)", handlers.onBackToSelect, 250),
+      createButton(scene, GAME_WIDTH / 2 - 140, CARD_Y, labels.restart, handlers.onRestart, 250),
+      createButton(scene, GAME_WIDTH / 2 + 140, CARD_Y, labels.back, handlers.onBackToSelect, 250),
     ];
     for (const b of this.endButtons) b.setVisible(false);
     this.hint = scene.add.text(GAME_WIDTH / 2, 700, "", textStyle(18, "#9aa4b8")).setOrigin(0.5);
+    this.status = scene.add.text(GAME_WIDTH / 2, 72, "", textStyle(18, "#7fdbff")).setOrigin(0.5);
     // じゃんけんの対応（常に表示）
     scene.add
       .text(
@@ -950,6 +965,16 @@ export class BattleUi {
     burst(this.scene, card.x, card.y, [0xffd866, 0xffffff], 14);
     this.endSelection(sel.view);
     sel.onDecide(sel.cursor);
+  }
+
+  /** 右下に短い通知を出す（オンライン対戦の接続状態・エラーなど）。 */
+  notice(text: string): void {
+    this.showToast(text);
+  }
+
+  /** 上部の補助表示（残り時間・相手の状態など）。 */
+  setStatus(text: string): void {
+    this.status.setText(text);
   }
 
   showFatal(text: string): void {

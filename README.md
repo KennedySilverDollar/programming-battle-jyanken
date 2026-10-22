@@ -2,7 +2,7 @@
 
 プログラミング言語どうしが戦う、じゃんけん式 1 対 1 チャンバラゲーム（Phaser 4 + TypeScript + Vite + Effect）。
 
-> 7 キャラ・ベストオブ 3・スキル・隠れデメリット（実績）・演出まで実装済み。
+> 7 キャラ・ベストオブ 3・スキル・隠れデメリット（実績）・演出・**オンラインのルーム対戦**まで実装済み。
 
 ## ルール
 
@@ -18,7 +18,7 @@
 | Haskell 🟣 | 110 | 3/5/4 | 遅延評価：被ダメージをサンクに溜める。勝つと最古のサンクを破棄。手札 0 で一括評価（1 回） |
 | C 🔵 | 90 | 6/3/3 | 動的メモリ確保：手札 5 枚以下でランダムな 1 枚を一時追加 |
 | C++ 🔷 | 85 | 7/3/2 | RAII：HP 50% 以下で、そのターン使ったカードを回収（次ターン使用不可） |
-| JavaScript 🟨 | 85 | 6/2/4 | イベントループ：3 ターン目以降・手札 4 枚以上で、相手の手を見て追加の 1 手 |
+| JavaScript 🟨 | 85 | 6/2/4 | イベントループ：3 ターン目以降・手札 4 枚以上で、両者の手の確定後・オープン前に追加の 1 手（相手の手は見えない） |
 | Python 🐍 | 80 | 4/4/4 | 動的型付け：相手の手札 6 枚以下で、相手の手札内訳を試合中ずっと公開 |
 | PHP 🐘 | 75 | 5/3/4 | リクエストライフサイクル：相手の手札 6 枚以下で、相手の手札を 2 枚破壊 |
 
@@ -35,29 +35,54 @@
 - **Haskell の強制評価後**は遅延評価が終わり、以後のダメージは HP に直接入る
 - **STW の -10** は素手補正の後に引く（0 未満にはならない）
 - **隠れデメリットの条件**（「手札 0 のターン」など）は手を選んだ時点の手札で判定する
+- **ターンの順序**（オフライン・オンライン共通）：手の確定 → スキル → 隠れデメリット →（イベントループの追加の 1 手）→ オープン → 判定 → ダメージ → 勝敗。
+  スキルの発動条件はターン開始時（手を出す前）の状態で判定する
+- **C の動的メモリ確保**：手の確定後に発動するので、追加したカードを使えるのは次のターン。そのターンに使わなければターン終了時に捨て札へ
+- **Java の GC** はこのターンに出したカードは回収しない（オープン前に手がばれるため）
 
-## 実行（ブラウザ）
+## 実行
+
+npm workspaces のモノレポ（Node.js 22）。
 
 ```sh
 npm install
-npm run dev        # http://localhost:5173/
-npm run build      # 本番ビルド → dist/
-npm run preview    # dist/ をローカルで配信して確認
-npm run check      # typecheck + lint + test
+npm run dev          # クライアント（Vite）: http://localhost:5173/
+npm run dev:server   # 対戦サーバー（WebSocket）: ws://localhost:8787（PORT で変更）
+npm run build        # クライアントの本番ビルド → packages/client/dist/
+npm run build:server # サーバーを 1 ファイルにバンドル → packages/server/dist/server.mjs
+npm run check        # typecheck + lint + test（全パッケージ）
 ```
 
-### Cloudflare Pages へのデプロイ
+オフライン（CPU 戦）はクライアントだけで動く。オンライン対戦にはサーバーも起動する。
 
-静的サイトとしてそのまま配信できる（サーバー側の処理は無い）。Pages の設定：
+### オンライン対戦
+
+1. キャラ選択画面右上の「🌐 オンライン (O)」でロビーへ
+2. キャラを選び「ルームを作る (N)」→ 6 文字のルームコードが出る（「招待リンクをコピー (L)」で `?room=XXXXXX` 付きの URL も作れる）
+3. 相手は「コードで参加 (J)」でコードを入力（招待リンクなら入力済み）して Enter
+4. そろったらルームの作成者が「開始 (Enter)」。ベストオブ 3 の後、両者が「再戦 (R)」を押すと同じキャラで次のマッチ
+
+クライアントの接続先はビルド時の `VITE_SERVER_URL`（例 `VITE_SERVER_URL=wss://battle.example.com npm run build`）。
+未指定なら、ページと同じホストの 8787 番に `ws://`（https のページなら `wss://`）でつなぐ。
+通信が切れても 30 秒以内なら自動で再接続して続きから戻る（sessionToken はローカルストレージにだけ保存）。
+
+### デプロイ
+
+**クライアント**は静的サイト。Cloudflare Pages / Workers の静的アセット（ルートの `wrangler.jsonc`）で配信できる：
 
 | 項目 | 値 |
 | --- | --- |
-| Framework preset | None（または Vite） |
 | Build command | `npm run build` |
-| Build output directory | `dist` |
-| Node.js のバージョン | `.nvmrc` の 22 が使われる |
+| Build output directory | `packages/client/dist` |
+| 環境変数 | `VITE_SERVER_URL=wss://<サーバーのホスト>` |
+| Node.js のバージョン | `.nvmrc` の 22 |
 
-CLI から直接上げる場合は `npx wrangler pages deploy dist`。
+CLI から直接上げる場合は `npx wrangler deploy`（または `npx wrangler pages deploy packages/client/dist`）。
+
+**サーバー**は常駐する Node.js プロセス（ルームの状態をメモリに持つ）なので、Cloudflare Pages には載らない。
+Node 22 が動く環境（Fly.io・Render・Railway・VPS など）で `npm ci && npm run build:server && PORT=8787 node packages/server/dist/server.mjs`。
+TLS はリバースプロキシ等で終端し、クライアントからは `wss://` でつなぐ。1 プロセスで全ルームを持つので、水平分割はしない前提。
+
 実績の解除状態はブラウザのローカルストレージに保存されるので、ドメインごと・ブラウザごとに別になる。
 
 起動するとキャラクター選択画面から始まる（自分 → CPU の順に選ぶ。同キャラ対戦も可）。
@@ -104,41 +129,50 @@ CLI から直接上げる場合は `npx wrangler pages deploy dist`。
 ## 構成
 
 ```
-src/
-  core/                 Phaser に依存しないゲームロジック（すべて Effect）
+packages/
+  shared/src/           クライアントとサーバーの共通部分（Phaser 非依存・すべて Effect）
     move.ts             Move（Slash/Thrust/Bash）と判定テーブル Record<Move, Record<Move, Outcome>>
     balance.ts          バランス値（HP・カード枚数・ダメージ・素手補正・スキル/隠れデメリットの確率と閾値）
     characters.ts       CharacterSpec の Schema とキャラデータ（7 体）
-    skills.ts           SkillSpec（skillId / kind / condition / activate）の Schema と効果の実装
-    traits.ts           HiddenTrait（隠れデメリット）の Schema
+    skills.ts / traits.ts / conditions.ts  スキル・隠れデメリット・発動条件
     achievements.ts     Achievement の Schema・データ・AchievementStore サービス
-    conditions.ts       発動条件の原子（手札枚数・HP 割合・ターン数…）とその評価
-    state.ts            GameState / FighterState / MatchState と不変条件チェック
-    battle.ts           ターン進行（スキル判定→手選択→オープン→ダメージ→勝敗判定）・試合・ベストオブ 3
+    state.ts            GameState / FighterState と不変条件チェック（INV-1〜5）
+    engine.ts           ターン解決（固定順序・乱数の呼び出し順も固定＝決定論的）
+    battle.ts           オフライン版の進行（入力の取得と演出への通知）・ベストオブ 3
     view.ts             視点ごとの View（相手の手札内訳・隠れデメリットの内部状態は型レベルで隔離）
-    events.ts           エンジン → ホストのイベント、試合結果
-    services.ts         PlayerInput / CpuStrategy / BattleEvents サービス
-    random.ts           RandomService とテスト用スタブ（シード固定・定数・台本）
-    ai.ts               CPU（ランダム。イベントループの追加の 1 手は勝てる手を選ぶ）
-    gameData.ts         起動時パース（実績との相互参照も検証）
-    errors.ts           型付きエラー
-  game/                 Phaser ホスト（薄い）
-    SelectScene.ts      キャラクター選択 Scene
-    select.ts           キャラクター選択の描画（隠れデメリットは表示しない）
-    selectState.ts      キャラクター選択の状態遷移（純粋関数）
-    AchievementsScene.ts 実績画面
-    achievementStorage.ts 実績のローカルストレージ永続化（AchievementStore の Layer）
-    session.ts          Scene 間で共有する型付きの状態（対戦カード・シード・実績ストア）
-    BattleScene.ts      マッチの Fiber を起動し、Effect.async で UI と橋渡し
-    ui.ts               対戦画面の描画（サンクの可視化・STW・実績トーストなど）
-    widgets.ts          共通部品（ボタン・文字スタイル・キー登録）
-    fx.ts               演出部品（背景・フェード・火花・光彩・描画品質の自動調整）
-    avatar.ts           キャラ表示（キャラ色のカード＋公式ロゴ。ロゴが無ければ絵文字）
-    phaserRandom.ts     Phaser.Math.RND を包む RandomService Layer
-    launch.ts           URL クエリのパース
-test/                   vitest（定数・シード固定の乱数スタブと台本入力で全スキル・隠れデメリットを検証）
-public/logos/           各言語のロゴ（SVG）
+    protocol.ts         オンラインのメッセージ（Effect.Schema の判別共用体）
+    fsm.ts              Room / Match の状態機械（全セルを Record で定義。表に無い遷移は InvalidTransition）
+    publicize.ts        エンジンの状態 → 公開情報（サーバーから出る情報の唯一の出口）
+    random.ts           RandomService（matchId から導くシード・テスト用スタブ）
+  server/src/           対戦サーバー（Node.js + Effect + @effect/platform の SocketServer）
+    hub.ts              ルーム・セッション・タイマー・採番・流量制限（通信手段に非依存）
+    ws.ts               WebSocket と Hub をつなぐ薄い層
+    errors.ts / config.ts / ids.ts / main.ts
+  server/test/          偽の接続と TestClock で、採番・冪等性・タイムアウト・再接続・決定論を検証
+  client/src/
+    game/               Phaser ホスト（CPU 戦・キャラ選択・実績・演出）
+    online/             オンライン対戦（接続・ロビー・対戦画面・サーバーのデータ → 表示用 View の変換）
+  client/public/logos/  各言語のロゴ（SVG）
 ```
+
+## オンライン対戦の設計
+
+- **サーバー権威**：手の検証・ダメージ計算・乱数・タイムアウトはすべてサーバー。クライアントは乱数を振らず、時計は残り時間の表示にしか使わない
+- 乱数は `matchId`（UUIDv4）の FNV-1a ハッシュをシードにした mulberry32。呼び出し順はエンジンが固定するので、同じ matchId・同じ入力列なら同じ結果になる
+- 全操作を 1 本のロックで直列化。`TurnResolved` は 1 つのオブジェクトを両者に送る（INV-7）。手選択中は相手の手の中身を送らない（INV-6：型の上でも入る場所が無い）
+- メッセージは `clientSeq` / `serverSeq` 付き。同じ `clientSeq` の再送には前回と同じ応答（同じ `serverSeq`）をそのまま返し、古い `clientSeq` は `InvalidSequence`（INV-8）
+- タイマー：手選択 15 秒（未選択はランダム代理）、再接続猶予 30 秒（超過で切断側の負け）、放置 WAITING 300 秒・READY 60 秒・FINISHED 60 秒でルームを閉じる、ハートビート 10 秒
+- 流量制限：1 秒 5 件を超えると `RateLimited`、3 回で切断。不正なメッセージ 5 回でも切断。それ以外のエラーは型付きの `Error` を返すだけで切断しない
+- 二重接続は新しい接続を残し、古い接続を閉じる
+
+仕様からの追加・解釈：
+
+- メッセージを 3 つ追加：`StartMatch`（READY → PLAYING。作成者のみ）、`SelectExtraMove`（イベントループの追加の 1 手）、`Heartbeat`
+- マッチの状態に `EXTRA_SELECTING`（両者の手の確定後・オープン前に、追加の 1 手を待つ）を追加。この間の同期では、相手が伏せたカードを捨て札から 1 枚隠す
+- 待機中（WAITING / READY / FINISHED）の退出・切断はルームを閉じる（READY → WAITING に戻さない）。試合中の退出は即負け（`Forfeit`）
+- 再戦は両者の `Rematch` がそろったら、READY を経てすぐに次のマッチを始める（勝ち数はリセット）
+- エラーコードに無い「その手は出せない」は `InvalidMessage`（不正メッセージの累積には数えない）
+- C の UB 補正は対象キャラが無いため省略
 
 ## キャラクターの追加
 
@@ -152,6 +186,8 @@ public/logos/           各言語のロゴ（SVG）
 
 - `Effect.assert` は Effect 3 に存在しないため、同等の `assertInvariant`（偽なら `Effect.dieMessage`）を `state.ts` に定義している。
   ターン境界ごとに HP 範囲・手札枚数・used フラグ・捨て札合計（手札＋捨て札＝初期＋生成）・サンク累積ダメージを検証する
+  （破壊されたカードも捨て札へ行くので、INV-3 は「手札＋捨て札＝初期＋生成」として表している）
+- `@effect/vitest` は vitest 3 系向けのため使わず、Effect の `TestClock` / `TestContext` を直接使っている
 
 ## ロゴについて
 
