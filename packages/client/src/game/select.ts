@@ -203,8 +203,8 @@ export class SelectUi {
         scene.tweens.add({ targets: o, x: targetX, duration: 320, delay: 80, ease: "Cubic.easeOut" });
       }
     };
-    side(matchup.Player, 1, "あなた");
-    side(matchup.Cpu, -1, "CPU");
+    side(matchup.P1, 1, "あなた");
+    side(matchup.P2, -1, "CPU");
 
     const vs = scene.add
       .text(GAME_WIDTH / 2, cy, "VS", { ...textStyle(96, "#ffd866"), fontStyle: "bold" })
@@ -214,7 +214,7 @@ export class SelectUi {
     popIn(scene, vs, 380, 2.4);
     scene.time.delayedCall(420, () => {
       flash(scene, 0xffffff, 120);
-      burst(scene, GAME_WIDTH / 2, cy, [matchup.Player.placeholder.color, matchup.Cpu.placeholder.color, 0xffd866], 40);
+      burst(scene, GAME_WIDTH / 2, cy, [matchup.P1.placeholder.color, matchup.P2.placeholder.color, 0xffd866], 40);
       if (!reducedMotion()) scene.cameras.main.shake(180, 0.006);
     });
     scene.time.delayedCall(VERSUS_MS, onDone);

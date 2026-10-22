@@ -88,7 +88,7 @@ export const runMatch = (opts: RunOptions): Recorded =>
         cpuLayer,
       );
 
-      const characters: Record<Side, CharacterSpec> = { Player: character(opts.player), Cpu: character(opts.cpu) };
+      const characters: Record<Side, CharacterSpec> = { P1: character(opts.player), P2: character(opts.cpu) };
       const result = yield* playMatch({ balance: gameData.balance, characters }).pipe(Effect.provide(layer));
       const store = yield* AchievementStore;
       return {

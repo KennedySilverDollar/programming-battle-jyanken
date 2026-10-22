@@ -19,7 +19,7 @@ describe("ベストオブ 3", () => {
       playerMoves: repeat("Slash", 8),
       cpuMoves: repeat("Thrust", 8),
     });
-    expect(rec.result).toEqual({ winner: "Player", wins: { Player: 2, Cpu: 0 } });
+    expect(rec.result).toEqual({ winner: "P1", wins: { P1: 2, P2: 0 } });
     const ends = ofTag(rec.events, "RoundEnded");
     expect(ends).toHaveLength(2);
     expect(ends[0]?.view.opponent.hp).toBe(0);
@@ -28,7 +28,7 @@ describe("ベストオブ 3", () => {
     // 2 試合目の開始時は満タン・手札 12 枚
     expect(starts[1]?.view.self.hp).toBe(80);
     expect(handTotal(starts[1]?.view.self.hand ?? { Slash: 0, Thrust: 0, Bash: 0 })).toBe(12);
-    expect(ofTag(rec.events, "MatchEnded")[0]?.winner).toBe("Player");
+    expect(ofTag(rec.events, "MatchEnded")[0]?.winner).toBe("P1");
   });
 });
 
@@ -42,8 +42,8 @@ describe("基本ルール", () => {
       cpuMoves: ["Slash"],
     });
     const ex = ofTag(rec.events, "ExchangeResolved")[0];
-    expect(ex?.damage).toEqual({ target: "Cpu", amount: 10, deferred: false });
-    expect(ex?.bashDiscard?.side).toBe("Cpu");
+    expect(ex?.damage).toEqual({ target: "P2", amount: 10, deferred: false });
+    expect(ex?.bashDiscard?.side).toBe("P2");
     expect(ex?.view.opponent.discard).toHaveLength(2); // 出した 1 枚＋捨てさせた 1 枚
   });
 
@@ -78,7 +78,7 @@ describe("基本ルール", () => {
     expect(bareChoice?.playable).toEqual(["Slash", "Thrust", "Bash"]);
     expect(bareChoice?.opponentHandTotal).toBe(0);
     const ex = ofTag(round1, "ExchangeResolved")[12];
-    expect(ex?.damage).toEqual({ target: "Cpu", amount: 10, deferred: false });
+    expect(ex?.damage).toEqual({ target: "P2", amount: 10, deferred: false });
   });
 });
 
@@ -92,7 +92,7 @@ describe("Haskell「遅延評価」", () => {
       cpuMoves: ["Thrust", "Bash", "Bash"],
     });
     const ex = ofTag(rec.events, "ExchangeResolved");
-    expect(ex[0]?.damage).toEqual({ target: "Cpu", amount: 20, deferred: true });
+    expect(ex[0]?.damage).toEqual({ target: "P2", amount: 20, deferred: true });
     expect(ex[0]?.view.opponent.hp).toBe(110);
     expect(Option.getOrNull(ex[1]?.view.opponent.thunks ?? Option.none())).toEqual({
       count: 2,
@@ -100,7 +100,7 @@ describe("Haskell「遅延評価」", () => {
       forced: false,
     });
     // 3 ターン目は Haskell の打撃が斬撃に勝つ → 最も古い 20 を破棄
-    expect(ex[2]?.thunkDropped).toEqual({ side: "Cpu", amount: 20 });
+    expect(ex[2]?.thunkDropped).toEqual({ side: "P2", amount: 20 });
     expect(Option.getOrNull(ex[2]?.view.opponent.thunks ?? Option.none())).toEqual({
       count: 1,
       total: 15,
@@ -120,7 +120,7 @@ describe("Haskell「遅延評価」", () => {
     expect(forced).toHaveLength(1);
     // 6 枚しかない斬撃が切れたあとは C の手札の先頭（刺突）になるので、合計は試合次第。HP は合計だけ減る
     const f = forced[0];
-    expect(f?.side).toBe("Cpu");
+    expect(f?.side).toBe("P2");
     expect(f?.view.opponent.hp).toBe(Math.max(0, 110 - (f?.total ?? 0)));
     expect(Option.getOrNull(f?.view.opponent.thunks ?? Option.none())?.forced).toBe(true);
   });
@@ -136,7 +136,7 @@ describe("Java「ガベージコレクション」と dispose 忘れ", () => {
       cpuMoves: repeat("Bash", 30),
     });
     const round1 = firstRound(rec.events);
-    const gc = ofTag(round1, "SkillActivated").filter((e) => e.side === "Player");
+    const gc = ofTag(round1, "SkillActivated").filter((e) => e.side === "P1");
     expect(gc.length).toBeGreaterThanOrEqual(3);
     // 1 ターン目は捨て札が無いので発動しない
     expect(gc[0]?.view.turn).toBe(2);
@@ -150,18 +150,20 @@ describe("Java「ガベージコレクション」と dispose 忘れ", () => {
 });
 
 describe("C「動的メモリ確保」とセグメンテーション違反", () => {
-  it("手札 5 枚以下で一時カードを追加。使わなければターン終了時に捨て札へ", () => {
+  it("手札 5 枚以下で一時カードを追加。次のターンに使わなければ、そのターン終了時に捨て札へ", () => {
     // C 同士であいこを続ける。確率は不成立（never は配列の末尾＝打撃を選ぶので、一時カードは打撃）
     const draws = [...repeat("Slash", 6), ...repeat("Thrust", 3), ...repeat("Bash", 3)];
     const rec = runMatch({ player: "c", cpu: "c", random: never, playerMoves: draws, cpuMoves: draws });
     const round1 = firstRound(rec.events);
-    const malloc = ofTag(round1, "SkillActivated").filter((e) => e.side === "Player");
+    const malloc = ofTag(round1, "SkillActivated").filter((e) => e.side === "P1");
     expect(malloc).toHaveLength(1);
     expect(malloc[0]?.view.turn).toBe(8); // 7 ターン後に手札 5 枚
-    expect(handTotal(malloc[0]?.view.self.hand ?? { Slash: 0, Thrust: 0, Bash: 0 })).toBe(6);
-    // 8 ターン目は刺突を出したので、一時確保の打撃はターン終了時に捨て札へ
-    const released = ofTag(round1, "TurnEnded").find((e) => e.view.turn === 8);
-    expect(released?.notes).toContainEqual({ _tag: "TempReleased", side: "Player", moves: ["Bash"] });
+    // スキルは手を出した後に判定されるので、8 ターン目のカードを出した後の 4 枚＋一時確保 1 枚
+    expect(handTotal(malloc[0]?.view.self.hand ?? { Slash: 0, Thrust: 0, Bash: 0 })).toBe(5);
+    // 確保したカードは次の 9 ターン目に使える。9 ターン目も刺突を出したので、打撃は 9 ターン目の終わりに捨て札へ
+    expect(ofTag(round1, "TurnEnded").find((e) => e.view.turn === 8)).toBeUndefined();
+    const released = ofTag(round1, "TurnEnded").find((e) => e.view.turn === 9);
+    expect(released?.notes).toContainEqual({ _tag: "TempReleased", side: "P1", moves: ["Bash"] });
   });
 
   it("素手のターン 10% で手が不発になる（最後の 1 枚を出すターンは素手ではない）", () => {
@@ -177,8 +179,8 @@ describe("C「動的メモリ確保」とセグメンテーション違反", () 
     const round1 = firstRound(rec.events);
     const seg = ofTag(round1, "TraitTriggered").find((e) => e.traitId === "c.null_pointer");
     expect(seg?.firstUnlock).toBe(true);
-    const revealed = ofTag(round1, "MovesRevealed").find((e) => e.plays.Player.effective._tag === "Fizzle");
-    expect(revealed?.plays.Player.bare).toBe(true);
+    const revealed = ofTag(round1, "MovesRevealed").find((e) => e.plays.P1.effective._tag === "Fizzle");
+    expect(revealed?.plays.P1.bare).toBe(true);
     expect(revealed?.view.turn).toBe(seg?.view.turn);
     // 不発の C に対して Python の手が一方的に通る
     const ex = ofTag(round1, "ExchangeResolved").find((e) => e.view.turn === revealed?.view.turn);
@@ -198,13 +200,13 @@ describe("C++「RAII」と解放漏れ", () => {
       cpuMoves: ["Slash", "Slash", "Slash", "Thrust"],
     });
     const round1 = firstRound(rec.events);
-    const raii = ofTag(round1, "SkillActivated").find((e) => e.side === "Player");
+    const raii = ofTag(round1, "SkillActivated").find((e) => e.side === "P1");
     expect(raii?.skillId).toBe("cpp.raii");
     const returned = ofTag(round1, "TurnEnded")
       .flatMap((e) => e.notes)
       .find((n) => n._tag === "RaiiReturned");
     expect(raii?.view.turn).toBe(4);
-    expect(returned).toEqual({ _tag: "RaiiReturned", side: "Player", move: "Bash" });
+    expect(returned).toEqual({ _tag: "RaiiReturned", side: "P1", move: "Bash" });
     // 回収した次のターンは打撃 1 枚がロック（打撃は 2 枚あるので、もう 1 枚は使える）
     const nextChoice = rec.choices.find((c) => Option.isSome(c.self.locked));
     expect(nextChoice?.turn).toBe(5);
@@ -239,7 +241,7 @@ describe("JavaScript「イベントループ」と undefined", () => {
       cpuMoves: ["Slash", "Slash", "Bash"],
     });
     const round1 = firstRound(rec.events);
-    const loop = ofTag(round1, "SkillActivated").find((e) => e.side === "Player");
+    const loop = ofTag(round1, "SkillActivated").find((e) => e.side === "P1");
     expect(loop?.view.turn).toBe(3);
     const extra = ofTag(round1, "ExtraMovePlayed")[0];
     expect(extra?.move).toBe("Thrust");
@@ -260,7 +262,7 @@ describe("JavaScript「イベントループ」と undefined", () => {
     });
     const round1 = firstRound(rec.events);
     const reveals = ofTag(round1, "MovesRevealed");
-    const i = reveals.findIndex((e) => e.plays.Player.effective._tag === "Undefined");
+    const i = reveals.findIndex((e) => e.plays.P1.effective._tag === "Undefined");
     expect(i).toBeGreaterThan(0);
     // 判定は手札を出す前（手札 3 枚以下）。出した後の手札は 2 枚以下
     expect(handTotal(reveals[i]?.view.self.hand ?? { Slash: 9, Thrust: 9, Bash: 9 })).toBeLessThanOrEqual(2);
@@ -279,7 +281,7 @@ describe("Python「動的型付け」", () => {
       cpuMoves: repeat("Bash", 12),
     });
     const round1 = firstRound(rec.events);
-    const act = ofTag(round1, "SkillActivated").find((e) => e.side === "Player");
+    const act = ofTag(round1, "SkillActivated").find((e) => e.side === "P1");
     expect(act?.view.turn).toBe(7);
     const before = round1.slice(
       0,
@@ -299,10 +301,10 @@ describe("PHP「リクエストライフサイクル」と緩やかな比較の�
       playerMoves: repeat("Bash", 12),
       cpuMoves: repeat("Bash", 12),
     });
-    const act = ofTag(firstRound(rec.events), "SkillActivated").find((e) => e.side === "Player");
+    const act = ofTag(firstRound(rec.events), "SkillActivated").find((e) => e.side === "P1");
     expect(act?.detail).toMatchObject({ _tag: "Destroyed" });
     expect(act?.detail._tag === "Destroyed" ? act.detail.moves.length : 0).toBe(2);
-    expect(act?.view.opponent.discard).toHaveLength(8); // 6 枚使用＋2 枚破壊
+    expect(act?.view.opponent.discard).toHaveLength(9); // 7 枚使用（このターンの分を含む）＋2 枚破壊
   });
 
   it("相手の手札 3 枚以下のターン 10% で手が別の手に変わる", () => {
@@ -314,7 +316,7 @@ describe("PHP「リクエストライフサイクル」と緩やかな比較の�
       cpuMoves: repeat("Bash", 20),
     });
     const juggled = ofTag(firstRound(rec.events), "MovesRevealed").find(
-      (e) => e.plays.Player.effective._tag === "Move" && e.plays.Player.effective.move !== e.plays.Player.chosen,
+      (e) => e.plays.P1.effective._tag === "Move" && e.plays.P1.effective.move !== e.plays.P1.chosen,
     );
     expect(juggled).toBeDefined();
     expect(rec.unlocked.has("loose_comparison")).toBe(true);
@@ -329,16 +331,16 @@ describe("全組み合わせ × 多数シードの性質", () => {
       for (const cpu of ids) {
         for (let seed = 1; seed <= 6; seed++) {
           const rec = runMatch({ player, cpu, random: seededRandomLayer(seed) });
-          expect(Math.max(rec.result.wins.Player, rec.result.wins.Cpu)).toBe(2);
+          expect(Math.max(rec.result.wins.P1, rec.result.wins.P2)).toBe(2);
 
           for (const round of splitRounds(rec.events)) {
-            for (const side of ["Player", "Cpu"] as const) {
+            for (const side of ["P1", "P2"] as const) {
               const acts = ofTag(round, "SkillActivated").filter((e) => e.side === side);
               if (acts[0]?.skillId !== "java.gc") expect(acts.length).toBeLessThanOrEqual(1);
             }
             // 相手の手札内訳は、自分が Python のスキルを発動するまで見えない
             const reveal = ofTag(round, "SkillActivated").find(
-              (e) => e.side === "Player" && e.skillId === "python.dynamic_typing",
+              (e) => e.side === "P1" && e.skillId === "python.dynamic_typing",
             );
             const until = reveal === undefined ? round.length : round.indexOf(reveal);
             for (const e of round.slice(0, until)) expect(Option.isNone(e.view.opponent.revealedHand)).toBe(true);

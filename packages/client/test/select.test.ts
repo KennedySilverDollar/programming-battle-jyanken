@@ -15,7 +15,7 @@ import { loadGameData } from "@pbj/shared/gameData";
 const gameData = Effect.runSync(loadGameData());
 
 const roster = gameData.roster;
-const ids = (s: SelectState) => (s._tag === "Done" ? [s.matchup.Player.id, s.matchup.Cpu.id] : []);
+const ids = (s: SelectState) => (s._tag === "Done" ? [s.matchup.P1.id, s.matchup.P2.id] : []);
 
 describe("キャラ選択の状態遷移", () => {
   it("7 キャラすべてを自分・CPU の両方に選べる（ミラー含む 49 通り）", () => {
@@ -66,7 +66,7 @@ describe("URL クエリ", () => {
   it("player と cpu の両方を指定すると対戦カードが決まる", () => {
     const r = run("?player=javascript&cpu=haskell");
     const preset = Either.getOrUndefined(r)?.preset;
-    expect(preset !== undefined && Option.isSome(preset) ? [preset.value.Player.id, preset.value.Cpu.id] : []).toEqual([
+    expect(preset !== undefined && Option.isSome(preset) ? [preset.value.P1.id, preset.value.P2.id] : []).toEqual([
       "javascript",
       "haskell",
     ]);

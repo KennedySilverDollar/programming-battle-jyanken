@@ -41,8 +41,8 @@ export const loadLaunchConfig = (search: string): Effect.Effect<LaunchConfig, St
       player === undefined || cpu === undefined
         ? Option.none()
         : Option.some({
-            Player: yield* findCharacter(data.roster, player),
-            Cpu: yield* findCharacter(data.roster, cpu),
+            P1: yield* findCharacter(data.roster, player),
+            P2: yield* findCharacter(data.roster, cpu),
           });
     const seed = params.seed ?? (yield* Clock.currentTimeMillis) % 1_000_000;
     return { data, preset, seed, quality: params.quality, forcedChance: Option.fromNullable(params.chance) };

@@ -46,7 +46,7 @@ export const confirm = (state: SelectState, roster: CharacterRoster): SelectStat
     case "PickCpu":
       return Option.match(chosen, {
         onNone: () => state,
-        onSome: (cpu): SelectState => ({ _tag: "Done", matchup: { Player: state.player, Cpu: cpu } }),
+        onSome: (cpu): SelectState => ({ _tag: "Done", matchup: { P1: state.player, P2: cpu } }),
       });
     case "Done":
       return state;

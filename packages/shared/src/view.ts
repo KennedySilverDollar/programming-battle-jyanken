@@ -1,6 +1,5 @@
 import { Option } from "effect";
 import type { CharacterSpec } from "./characters";
-import type { EffectiveMove } from "./events";
 import { handTotal, type Hand } from "./hand";
 import type { Move } from "./move";
 import { opponentOf, type Side } from "./side";
@@ -67,10 +66,11 @@ export interface ChoiceView extends BattleView {
   readonly playable: readonly Move[];
 }
 
-/** イベントループの追加の 1 手を選ぶ画面。相手のオープン済みの手が見える。 */
-export interface ExtraChoiceView extends ChoiceView {
-  readonly opponentPlay: EffectiveMove;
-}
+/**
+ * イベントループの追加の 1 手を選ぶ画面。両者の手は確定済みだが、まだオープンされていないので
+ * 相手の手は含まない（決定後オープン）。
+ */
+export type ExtraChoiceView = ChoiceView;
 
 const skillView = (f: FighterState): SkillView => ({
   name: f.skill.spec.displayName,
@@ -116,7 +116,4 @@ export const choiceView = (state: GameState, side: Side): ChoiceView => ({
   playable: playableMoves(state.fighters[side]),
 });
 
-export const extraChoiceView = (state: GameState, side: Side, opponentPlay: EffectiveMove): ExtraChoiceView => ({
-  ...choiceView(state, side),
-  opponentPlay,
-});
+export const extraChoiceView = (state: GameState, side: Side): ExtraChoiceView => choiceView(state, side);

@@ -1,6 +1,6 @@
 import { Option } from "effect";
 import { describe, expect, it } from "vitest";
-import { damageFor, decideExchange } from "../src/battle";
+import { damageFor, decideExchange } from "../src/engine";
 import type { EffectiveMove } from "../src/events";
 import type { Move } from "../src/move";
 import { initialFighter } from "../src/state";
@@ -14,8 +14,8 @@ const play = (effective: EffectiveMove, extra?: Move) => ({
 const mv = (move: Move): EffectiveMove => ({ _tag: "Move", move });
 
 describe("ダメージ", () => {
-  const python = initialFighter("Player", character("python"));
-  const java = initialFighter("Player", character("java"));
+  const python = initialFighter("P1", character("python"));
+  const java = initialFighter("P1", character("java"));
 
   it("基本ダメージ：斬撃 20 / 刺突 15 / 打撃 10", () => {
     expect(damageFor(balance, "Slash", python, false)).toBe(20);
@@ -27,7 +27,7 @@ describe("ダメージ", () => {
     expect(damageFor(balance, "Thrust", python, true)).toBe(8); // 15 / 2 = 7.5 → 8
     expect(damageFor(balance, "Slash", java, true)).toBe(7); // 20 / 3 = 6.67 → 7
     expect(damageFor(balance, "Bash", java, true)).toBe(4); // 10 / 3 = 3.33 → 4
-    const haskell = initialFighter("Player", character("haskell"));
+    const haskell = initialFighter("P1", character("haskell"));
     expect(damageFor(balance, "Thrust", haskell, true)).toBe(5);
   });
 
@@ -41,34 +41,34 @@ describe("ダメージ", () => {
 
 describe("勝敗の決定", () => {
   it("通常の三すくみ", () => {
-    expect(decideExchange(balance, { Player: play(mv("Slash")), Cpu: play(mv("Thrust")) })).toEqual({
-      winner: "Player",
+    expect(decideExchange(balance, { P1: play(mv("Slash")), P2: play(mv("Thrust")) })).toEqual({
+      winner: "P1",
       move: "Slash",
     });
-    expect(decideExchange(balance, { Player: play(mv("Bash")), Cpu: play(mv("Bash")) })).toBeNull();
+    expect(decideExchange(balance, { P1: play(mv("Bash")), P2: play(mv("Bash")) })).toBeNull();
   });
 
   it("undefined はあいこ扱い", () => {
-    expect(decideExchange(balance, { Player: play({ _tag: "Undefined" }), Cpu: play(mv("Slash")) })).toBeNull();
+    expect(decideExchange(balance, { P1: play({ _tag: "Undefined" }), P2: play(mv("Slash")) })).toBeNull();
   });
 
   it("不発の側は相手の手が一方的に通る", () => {
-    expect(decideExchange(balance, { Player: play({ _tag: "Fizzle" }), Cpu: play(mv("Bash")) })).toEqual({
-      winner: "Cpu",
+    expect(decideExchange(balance, { P1: play({ _tag: "Fizzle" }), P2: play(mv("Bash")) })).toEqual({
+      winner: "P2",
       move: "Bash",
     });
-    expect(decideExchange(balance, { Player: play({ _tag: "Fizzle" }), Cpu: play({ _tag: "Fizzle" }) })).toBeNull();
+    expect(decideExchange(balance, { P1: play({ _tag: "Fizzle" }), P2: play({ _tag: "Fizzle" }) })).toBeNull();
   });
 
   it("イベントループ：2 手のどちらかが勝てば勝ち（相手に負ける手を含んでいても）", () => {
     // 斬撃は打撃に負けるが、刺突が打撃に勝つ
-    expect(decideExchange(balance, { Player: play(mv("Slash"), "Thrust"), Cpu: play(mv("Bash")) })).toEqual({
-      winner: "Player",
+    expect(decideExchange(balance, { P1: play(mv("Slash"), "Thrust"), P2: play(mv("Bash")) })).toEqual({
+      winner: "P1",
       move: "Thrust",
     });
     // どちらも勝てなければ負け
-    expect(decideExchange(balance, { Player: play(mv("Slash"), "Slash"), Cpu: play(mv("Bash")) })).toEqual({
-      winner: "Cpu",
+    expect(decideExchange(balance, { P1: play(mv("Slash"), "Slash"), P2: play(mv("Bash")) })).toEqual({
+      winner: "P2",
       move: "Bash",
     });
   });

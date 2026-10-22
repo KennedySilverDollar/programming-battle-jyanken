@@ -45,7 +45,7 @@ const TRAIT_MESSAGE: Readonly<Record<TraitId, string>> = {
   "java.swt_leak": "Color#dispose() が呼ばれていない…",
 };
 
-const AVATAR_X: Readonly<Record<Side, number>> = { Player: 320, Cpu: GAME_WIDTH - 320 };
+const AVATAR_X: Readonly<Record<Side, number>> = { P1: 320, P2: GAME_WIDTH - 320 };
 const AVATAR_Y = 270;
 const CARD_Y = 620;
 const CARD_W = 150;
@@ -141,7 +141,7 @@ export class BattleUi {
   /** 試合終了後に手札カードの位置へ出すボタン。 */
   private readonly endButtons: readonly Phaser.GameObjects.Container[];
   private selection: Selection | null = null;
-  private wins: Readonly<Record<Side, number>> = { Player: 0, Cpu: 0 };
+  private wins: Readonly<Record<Side, number>> = { P1: 0, P2: 0 };
   private ended = false;
   private toastY = 0;
 
@@ -151,29 +151,29 @@ export class BattleUi {
     handlers: UiHandlers,
   ) {
     const { self, opponent } = view;
-    this.colors = { Player: self.character.placeholder.color, Cpu: opponent.character.placeholder.color };
-    createBackdrop(scene, [this.colors.Player, this.colors.Cpu]);
+    this.colors = { P1: self.character.placeholder.color, P2: opponent.character.placeholder.color };
+    createBackdrop(scene, [this.colors.P1, this.colors.P2]);
 
     this.turnText = scene.add.text(GAME_WIDTH / 2, 40, "", textStyle(24)).setOrigin(0.5);
     this.hp = {
-      Player: this.makeHpBar(40, 30, self.character.name, self.character.maxHp),
-      Cpu: this.makeHpBar(GAME_WIDTH - 40 - 480, 30, `${opponent.character.name} (CPU)`, opponent.character.maxHp),
+      P1: this.makeHpBar(40, 30, self.character.name, self.character.maxHp),
+      P2: this.makeHpBar(GAME_WIDTH - 40 - 480, 30, `${opponent.character.name} (CPU)`, opponent.character.maxHp),
     };
     this.badges = {
-      Player: this.makeBadges("Player", 40, self.character.name),
-      Cpu: this.makeBadges("Cpu", GAME_WIDTH - 40, `${opponent.character.name} (CPU)`),
+      P1: this.makeBadges("P1", 40, self.character.name),
+      P2: this.makeBadges("P2", GAME_WIDTH - 40, `${opponent.character.name} (CPU)`),
     };
     this.avatars = {
-      Player: createAvatar(scene, self.character, AVATAR_X.Player, AVATAR_Y, 1),
-      Cpu: createAvatar(scene, opponent.character, AVATAR_X.Cpu, AVATAR_Y, -1),
+      P1: createAvatar(scene, self.character, AVATAR_X.P1, AVATAR_Y, 1),
+      P2: createAvatar(scene, opponent.character, AVATAR_X.P2, AVATAR_Y, -1),
     };
     this.skillText = {
-      Player: scene.add.text(AVATAR_X.Player, 405, "", textStyle(18, "#c8d0e0")).setOrigin(0.5),
-      Cpu: scene.add.text(AVATAR_X.Cpu, 405, "", textStyle(18, "#c8d0e0")).setOrigin(0.5),
+      P1: scene.add.text(AVATAR_X.P1, 405, "", textStyle(18, "#c8d0e0")).setOrigin(0.5),
+      P2: scene.add.text(AVATAR_X.P2, 405, "", textStyle(18, "#c8d0e0")).setOrigin(0.5),
     };
     this.discardLabel = {
-      Player: scene.add.text(80, 440, "", textStyle(20)).setWordWrapWidth(480),
-      Cpu: scene.add.text(GAME_WIDTH - 560, 440, "", textStyle(20)).setWordWrapWidth(480),
+      P1: scene.add.text(80, 440, "", textStyle(20)).setWordWrapWidth(480),
+      P2: scene.add.text(GAME_WIDTH - 560, 440, "", textStyle(20)).setWordWrapWidth(480),
     };
     this.ownStatus = scene.add.text(80, 500, "", textStyle(20, "#ffd866"));
     this.opponentHand = scene.add.text(GAME_WIDTH - 560, 500, "", textStyle(22, "#ffd866"));
@@ -182,8 +182,8 @@ export class BattleUi {
       .setOrigin(0.5)
       .setStroke("#000000", 6)
       .setDepth(30);
-    this.reveal = { Player: this.makeRevealCard(), Cpu: this.makeRevealCard() };
-    this.extraReveal = { Player: this.makeRevealCard(), Cpu: this.makeRevealCard() };
+    this.reveal = { P1: this.makeRevealCard(), P2: this.makeRevealCard() };
+    this.extraReveal = { P1: this.makeRevealCard(), P2: this.makeRevealCard() };
 
     this.cards = {
       Slash: this.makeCard("Slash", GAME_WIDTH / 2 - 170),
@@ -229,7 +229,7 @@ export class BattleUi {
 
   /** 左側は x から右へ、右側は x から左へ並べる。 */
   private makeBadges(side: Side, x: number, name: string): Badges {
-    const left = side === "Player";
+    const left = side === "P1";
     const ox = left ? 0 : 1;
     const nameWidth = this.scene.add.text(0, 0, name, textStyle(22)).setVisible(false).width;
     const wins = this.scene.add.text(x, 94, "", textStyle(20, "#ffd866")).setOrigin(ox, 0);
@@ -351,7 +351,7 @@ export class BattleUi {
 
   private renderBadges(view: BattleView): void {
     for (const side of SIDES) {
-      const v = side === "Player" ? view.self : view.opponent;
+      const v = side === "P1" ? view.self : view.opponent;
       const b = this.badges[side];
       const pips = Array.from({ length: 2 }, (_, i) => (i < this.wins[side] ? "●" : "○")).join("");
       b.wins.setText(pips);
@@ -360,10 +360,10 @@ export class BattleUi {
   }
 
   private renderVitals(view: BattleView): void {
-    this.renderHp("Player", view.self.hp, view.self.character.maxHp);
-    this.renderHp("Cpu", view.opponent.hp, view.opponent.character.maxHp);
-    this.renderThunks("Player", view.self.thunks);
-    this.renderThunks("Cpu", view.opponent.thunks);
+    this.renderHp("P1", view.self.hp, view.self.character.maxHp);
+    this.renderHp("P2", view.opponent.hp, view.opponent.character.maxHp);
+    this.renderThunks("P1", view.self.thunks);
+    this.renderThunks("P2", view.opponent.thunks);
   }
 
   private renderSkill(side: Side, v: OwnView | OpponentView): void {
@@ -413,7 +413,7 @@ export class BattleUi {
     if (sel === null) {
       this.hint.setText("");
     } else if (sel.extra) {
-      this.hint.setText("イベントループ：追加の 1 手を選んでください（どちらかが勝てば勝ち）");
+      this.hint.setText("イベントループ：追加の 1 手を選んでください（相手の手はオープン前。どちらかが勝てば勝ち）");
     } else {
       this.hint.setText("クリックで決定    ／    A / D : 手を選ぶ    J : 決定");
     }
@@ -445,13 +445,13 @@ export class BattleUi {
     if (!this.ended) this.turnText.setText(`Round ${String(view.round)}  ·  Turn ${String(view.turn)}`);
     if (withVitals) this.renderVitals(view);
     this.renderBadges(view);
-    this.renderSkill("Player", self);
-    this.renderSkill("Cpu", opponent);
-    this.discardLabel.Player.setText(`自分の捨て札: ${discardText(self.discard)}`);
-    this.discardLabel.Cpu.setText(`相手の捨て札: ${discardText(opponent.discard)}`);
+    this.renderSkill("P1", self);
+    this.renderSkill("P2", opponent);
+    this.discardLabel.P1.setText(`自分の捨て札: ${discardText(self.discard)}`);
+    this.discardLabel.P2.setText(`相手の捨て札: ${discardText(opponent.discard)}`);
     if (!this.ended) this.renderOwnHand(self);
     this.renderOpponentHand(opponent, opponentTotal);
-    this.avatars.Player.setActive(this.selection !== null);
+    this.avatars.P1.setActive(this.selection !== null);
   }
 
   private showBanner(title: string, body: string, color: number, ms: number): void {
@@ -505,9 +505,9 @@ export class BattleUi {
 
   private sideName(view: BattleView, side: Side): string {
     switch (side) {
-      case "Player":
+      case "P1":
         return view.self.character.name;
-      case "Cpu":
+      case "P2":
         return view.opponent.character.name;
     }
   }
@@ -526,17 +526,17 @@ export class BattleUi {
       this.scene.tweens.add({ targets: card.root, alpha: 1, y: CARD_Y, duration: 200 });
     }
     if (round === 1) {
-      this.avatars.Player.enter(0);
-      this.avatars.Cpu.enter(80);
+      this.avatars.P1.enter(0);
+      this.avatars.P2.enter(80);
       this.message.setFontSize(48).setColor("#ffffff").setY(AVATAR_Y);
       this.message.setText(`${view.self.character.name}  VS  ${view.opponent.character.name}`);
       this.fitMessage();
       popIn(this.scene, this.message, 380, 1.8);
       this.scene.time.delayedCall(560, () => {
         flash(this.scene, 0xffffff, 140);
-        burst(this.scene, GAME_WIDTH / 2, AVATAR_Y, [this.colors.Player, this.colors.Cpu, 0xffffff], 30);
-        this.avatars.Player.startIdle();
-        this.avatars.Cpu.startIdle();
+        burst(this.scene, GAME_WIDTH / 2, AVATAR_Y, [this.colors.P1, this.colors.P2, 0xffffff], 30);
+        this.avatars.P1.startIdle();
+        this.avatars.P2.startIdle();
       });
       this.scene.tweens.add({ targets: this.message, alpha: 0, duration: 200, delay: TIMING.roundIntro - 220 });
       return TIMING.roundIntro;
@@ -546,12 +546,7 @@ export class BattleUi {
       this.avatars[side].reset();
       this.avatars[side].startIdle();
     }
-    this.showBanner(
-      `Round ${String(round)}`,
-      `${String(wins.Player)} - ${String(wins.Cpu)}`,
-      0xffd866,
-      TIMING.roundStart,
-    );
+    this.showBanner(`Round ${String(round)}`, `${String(wins.P1)} - ${String(wins.P2)}`, 0xffd866, TIMING.roundStart);
     return TIMING.roundStart;
   }
 
@@ -582,7 +577,7 @@ export class BattleUi {
   /** 両者のカードをめくる。 */
   private playReveal(plays: Readonly<Record<Side, RevealedPlay>>): void {
     const { scene } = this;
-    const startX: Record<Side, number> = { Player: GAME_WIDTH / 2 - 110, Cpu: GAME_WIDTH / 2 + 110 };
+    const startX: Record<Side, number> = { P1: GAME_WIDTH / 2 - 110, P2: GAME_WIDTH / 2 + 110 };
     for (const side of SIDES) {
       this.extraReveal[side].root.setVisible(false);
       const card = this.reveal[side];
@@ -601,7 +596,7 @@ export class BattleUi {
   private playExtra(side: Side, move: Move): void {
     const card = this.extraReveal[side];
     this.setRevealCard(card, { label: MOVE_LABEL[move], sub: "event loop", small: false });
-    const x = side === "Player" ? GAME_WIDTH / 2 - 240 : GAME_WIDTH / 2 + 240;
+    const x = side === "P1" ? GAME_WIDTH / 2 - 240 : GAME_WIDTH / 2 + 240;
     card.root
       .setVisible(true)
       .setPosition(x, AVATAR_Y - 30)
@@ -616,13 +611,13 @@ export class BattleUi {
   private playResolve(event: Extract<BattleEvent, { _tag: "ExchangeResolved" }>): void {
     const { scene } = this;
     const { view, outcome, damage } = event;
-    const winner: Side | null = outcome === "Draw" ? null : outcome === "Win" ? "Player" : "Cpu";
-    const startX: Record<Side, number> = { Player: GAME_WIDTH / 2 - 110, Cpu: GAME_WIDTH / 2 + 110 };
+    const winner: Side | null = outcome === "Draw" ? null : outcome === "Win" ? "P1" : "P2";
+    const startX: Record<Side, number> = { P1: GAME_WIDTH / 2 - 110, P2: GAME_WIDTH / 2 + 110 };
     const cardsOf = (side: Side) => [this.reveal[side].root, this.extraReveal[side].root].filter((c) => c.visible);
     for (const side of SIDES) {
       scene.tweens.add({
         targets: cardsOf(side),
-        x: `${side === "Player" ? "+" : "-"}=48`,
+        x: `${side === "P1" ? "+" : "-"}=48`,
         duration: 110,
         ease: "Quad.easeIn",
       });
@@ -657,7 +652,7 @@ export class BattleUi {
         punch(scene, this.reveal[winner].root, 1.25, 140);
         scene.tweens.add({
           targets: cardsOf(loser),
-          angle: loser === "Player" ? -35 : 35,
+          angle: loser === "P1" ? -35 : 35,
           y: AVATAR_Y + 40,
           alpha: 0,
           scale: 0.6,
@@ -802,7 +797,7 @@ export class BattleUi {
         const reason = result.reason === "TurnLimit" ? "（上限ターン・HP 割合で判定）" : "";
         this.showBanner(
           `Round ${String(view.round)} — ${this.sideName(view, result.winner)} の勝ち`,
-          `${String(wins.Player)} - ${String(wins.Cpu)}${reason}`,
+          `${String(wins.P1)} - ${String(wins.P2)}${reason}`,
           this.colors[result.winner],
           TIMING.roundEnd,
         );
@@ -866,7 +861,7 @@ export class BattleUi {
         punch(this.scene, this.turnText, 1.2, 140);
         return after(TIMING.turnIntro);
       case "SkillActivated": {
-        const v = event.side === "Player" ? event.view.self : event.view.opponent;
+        const v = event.side === "P1" ? event.view.self : event.view.opponent;
         const ms = v.skill.activations > 1 ? TIMING.skillBannerRepeat : TIMING.skillBanner;
         this.playSkill(event.side, `${this.sideName(event.view, event.side)}：${event.name}`, event.description, ms);
         return after(ms);

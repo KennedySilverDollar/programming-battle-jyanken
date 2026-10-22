@@ -33,7 +33,7 @@ export class SelectScene extends Phaser.Scene {
       onSome: (m) =>
         Math.max(
           0,
-          roster.findIndex((c) => c.id === m.Player.id),
+          roster.findIndex((c) => c.id === m.P1.id),
         ),
     });
     let state: SelectState = initialSelect(lastIndex);

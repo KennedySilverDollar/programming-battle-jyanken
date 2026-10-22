@@ -14,8 +14,10 @@ export interface FighterStatus {
   readonly stwPenaltyNow: number;
   /** Java の Stop The World：次のターンに stwPenaltyNow へ移る値。 */
   readonly stwPenaltyNext: number;
-  /** C「動的メモリ確保」：このターンだけ追加されたカード。 */
+  /** C「動的メモリ確保」：このターンに追加されたカード（スキルは手選択の後に判定されるので、使えるのは次のターン）。 */
   readonly tempCards: readonly Move[];
+  /** 前のターンに追加された一時確保のカード。このターンに使わなければ、ターン終了時に捨て札へ。 */
+  readonly heldTemps: readonly Move[];
   /** C++「RAII」：このターン使ったカードをターン終了時に回収する。 */
   readonly raiiArmed: boolean;
   /** C++「RAII」で回収したカード。このターンは 1 枚使用不可。 */
@@ -68,6 +70,7 @@ export const INITIAL_STATUS: FighterStatus = {
   stwPenaltyNow: 0,
   stwPenaltyNext: 0,
   tempCards: [],
+  heldTemps: [],
   raiiArmed: false,
   locked: Option.none(),
   eventLoop: false,
@@ -91,8 +94,8 @@ export const initialGameState = (characters: Readonly<Record<Side, CharacterSpec
   round,
   turnsPlayed: 0,
   fighters: {
-    Player: initialFighter("Player", characters.Player),
-    Cpu: initialFighter("Cpu", characters.Cpu),
+    P1: initialFighter("P1", characters.P1),
+    P2: initialFighter("P2", characters.P2),
   },
 });
 

@@ -53,7 +53,7 @@ export class BattleScene extends Phaser.Scene {
     const toSelect = ifFinished(() => {
       fadeOutThen(this, () => this.scene.start("select"));
     });
-    const ui = new BattleUi(this, battleView(initialGameState(characters), "Player"), {
+    const ui = new BattleUi(this, battleView(initialGameState(characters), "P1"), {
       onRestart: restart,
       onBackToSelect: toSelect,
     });
