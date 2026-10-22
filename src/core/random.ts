@@ -17,6 +17,8 @@ export class RandomService extends Context.Tag("RandomService")<
     readonly integerInRange: (min: number, max: number) => Effect.Effect<number>;
     /** 非空配列から 1 要素を一様に選ぶ。 */
     readonly pick: <A>(items: Arr.NonEmptyReadonlyArray<A>) => Effect.Effect<A>;
+    /** 確率 probability（0〜1）で true。 */
+    readonly chance: (probability: number) => Effect.Effect<boolean>;
   }
 >() {}
 
@@ -26,6 +28,7 @@ export const randomServiceFrom = (source: RandomSource): Context.Tag.Service<Ran
     Effect.sync(() => min + Math.floor(source.frac() * (max - min + 1)));
   return {
     integerInRange,
+    chance: (probability) => Effect.sync(() => source.frac() < probability),
     pick: <A>(items: Arr.NonEmptyReadonlyArray<A>) =>
       Effect.flatMap(integerInRange(0, items.length - 1), (i) =>
         Option.match(Arr.get(items, i), {
@@ -52,3 +55,27 @@ export const mulberry32 = (seed: number): RandomSource => {
 
 export const seededRandomLayer = (seed: number): Layer.Layer<RandomService> =>
   Layer.sync(RandomService, () => randomServiceFrom(mulberry32(seed)));
+
+/**
+ * 指定した値を順に返すスタブ（確率判定を狙って成立・不成立させるテスト用）。
+ * 使い切ったら fallbackSeed の mulberry32 に切り替える。
+ */
+export const scriptedRandomLayer = (values: readonly number[], fallbackSeed = 1): Layer.Layer<RandomService> =>
+  Layer.sync(RandomService, () => {
+    const fallback = mulberry32(fallbackSeed);
+    let i = 0;
+    return randomServiceFrom({
+      frac: () => {
+        const v = values[i];
+        i += 1;
+        return v ?? fallback.frac();
+      },
+    });
+  });
+
+/**
+ * 常に同じ値を返すスタブ。frac = 0 なら確率判定はすべて成立し、配列からは先頭を選ぶ。
+ * frac = 0.999 ならすべて不成立で、配列からは末尾を選ぶ。
+ */
+export const constantRandomLayer = (frac: number): Layer.Layer<RandomService> =>
+  Layer.succeed(RandomService, randomServiceFrom({ frac: () => frac }));
