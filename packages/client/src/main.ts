@@ -37,6 +37,8 @@ void Effect.runPromiseExit(loadLaunchConfig(window.location.search)).then((exit)
       const game = new Phaser.Game({
         type: Phaser.AUTO,
         parent: "game",
+        // ロビーのルームコード入力欄（HTML の input）を載せる
+        dom: { createContainer: true },
         backgroundColor: "#11141c",
         width: GAME_WIDTH,
         height: GAME_HEIGHT,
