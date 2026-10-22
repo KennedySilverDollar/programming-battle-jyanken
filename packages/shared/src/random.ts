@@ -79,3 +79,20 @@ export const scriptedRandomLayer = (values: readonly number[], fallbackSeed = 1)
  */
 export const constantRandomLayer = (frac: number): Layer.Layer<RandomService> =>
   Layer.succeed(RandomService, randomServiceFrom({ frac: () => frac }));
+
+/**
+ * matchId（文字列）から 32bit のシードを決定論的に導出する（FNV-1a）。
+ * 同じ matchId なら必ず同じシード＝同じ入力列から同じ結果になる。
+ */
+export const seedFromMatchId = (matchId: string): number => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < matchId.length; i++) {
+    h ^= matchId.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+};
+
+/** matchId から導いたシードの RandomService（サーバーでマッチごとに 1 つ）。 */
+export const matchRandomLayer = (matchId: string): Layer.Layer<RandomService> =>
+  seededRandomLayer(seedFromMatchId(matchId));
