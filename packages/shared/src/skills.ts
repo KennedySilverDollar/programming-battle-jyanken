@@ -152,13 +152,16 @@ export interface ActivationResult {
 }
 
 /** 捨て札からランダムに 1 枚抜く。 */
+/** 捨て札の先頭 recyclable 枚（＝このターンより前に捨てたカード）から、ランダムに 1 枚抜く。 */
 const takeRandomDiscard = (
   f: FighterState,
+  recyclable: number,
 ): Effect.Effect<Option.Option<{ readonly fighter: FighterState; readonly move: Move }>, never, RandomService> =>
   Effect.gen(function* () {
-    if (f.discard.length === 0) return Option.none();
+    const limit = Math.min(recyclable, f.discard.length);
+    if (limit === 0) return Option.none();
     const random = yield* RandomService;
-    const index = yield* random.integerInRange(0, f.discard.length - 1);
+    const index = yield* random.integerInRange(0, limit - 1);
     const move = f.discard[index];
     if (move === undefined) return yield* Effect.dieMessage("捨て札のインデックスが範囲外");
     const discard = [...f.discard.slice(0, index), ...f.discard.slice(index + 1)];
@@ -173,11 +176,16 @@ const repeat = <A>(n: number, initial: A, step: (a: A) => Effect.Effect<A, never
     { while: ({ i }) => i < n, body: ({ i, a }) => Effect.map(step(a), (next) => ({ i: i + 1, a: next })) },
   ).pipe(Effect.map(({ a }) => a));
 
-/** 効果を適用した新しい (self, opponent) を返す。used / activations の更新は戦闘エンジンが行う。 */
+/**
+ * 効果を適用した新しい (self, opponent) を返す。used / activations の更新は戦闘エンジンが行う。
+ * recyclableDiscard：GC が回収してよい捨て札の枚数（先頭から）。このターンに出したカードは
+ * まだオープン前なので回収対象から外す（回収すると、その手がオープン前に相手に知れてしまう）。
+ */
 export const applyActivation = (
   activation: SkillActivation,
   self: FighterState,
   opponent: FighterState,
+  recyclableDiscard: number = self.discard.length,
 ): Effect.Effect<ActivationResult, never, RandomService> =>
   Effect.gen(function* () {
     switch (activation._tag) {
@@ -186,7 +194,7 @@ export const applyActivation = (
           activation.cards,
           { fighter: self, moves: NO_MOVES },
           ({ fighter, moves }) =>
-            Effect.map(takeRandomDiscard(fighter), (taken) =>
+            Effect.map(takeRandomDiscard(fighter, recyclableDiscard - moves.length), (taken) =>
               Option.match(taken, {
                 onNone: () => ({ fighter, moves }),
                 onSome: (t) => ({ fighter: t.fighter, moves: [...moves, t.move] }),

@@ -242,7 +242,13 @@ const resolveSkill = (
     const p = activationProbability(spec.kind);
     if (p < 1 && !(yield* random.chance(p))) return { state: current, events: [] };
 
-    const result = yield* applyActivation(spec.activate, self, current.fighters[opponentOf(side)]);
+    // GC はこのターンより前の捨て札からだけ回収する（このターンの手はまだオープン前）
+    const result = yield* applyActivation(
+      spec.activate,
+      self,
+      current.fighters[opponentOf(side)],
+      turnStart.fighters[side].discard.length,
+    );
     const activated: FighterState = {
       ...result.self,
       skill: { ...result.self.skill, used: true, activations: result.self.skill.activations + 1 },
